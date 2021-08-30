@@ -6,6 +6,7 @@ import Data.Lens (view)
 import Data.List (toUnfoldable) as List
 import Data.Map (Map)
 import Data.Map as Map
+import Data.Map.Ordered.OMap as OMap
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Tuple (Tuple)
 import Data.Tuple.Nested ((/\))
@@ -21,7 +22,6 @@ import InputField.Types (State) as InputField
 import InputField.View (renderInput)
 import MainFrame.Types (ChildSlots)
 import Marlowe.Extended.Metadata (ContractTemplate, MetaData, NumberFormat(..), _contractName, _metaData, _slotParameterDescriptions, _valueParameterDescription, _valueParameterFormat, _valueParameterInfo)
-import Data.Map.Ordered.OMap as OMap
 import Marlowe.Market (contractTemplates)
 import Marlowe.PAB (contractCreationFee)
 import Marlowe.Semantics (Assets, TokenName)

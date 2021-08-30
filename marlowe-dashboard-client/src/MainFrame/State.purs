@@ -33,7 +33,7 @@ import Humanize (getTimezoneOffset)
 import MainFrame.Lenses (_currentSlot, _dashboardState, _subState, _toast, _tzOffset, _webSocketStatus, _welcomeState)
 import MainFrame.Types (Action(..), ChildSlots, Msg, Query(..), State, WebSocketStatus(..))
 import MainFrame.View (render)
-import Marlowe.Client (LastResult(..), MarloweError(..))
+import Marlowe.Client (LastResult(..))
 import Marlowe.PAB (PlutusAppId)
 import Plutus.PAB.Webserver.Types (CombinedWSStreamToClient(..), InstanceStatusToClient(..))
 import Toast.State (defaultState, handleAction) as Toast
