@@ -1,27 +1,33 @@
 module Input.Base
   ( Action
+  , Component
   , HTML
   , Message(..)
   , Props
   , Query(..)
   , Slot
   , State
-  , defaultProps
-  , mkInputProps
   , component
+  , defaultProps
+  , label
+  , mkInputProps
+  , renderError
   ) where
 
 import Prelude
 import Control.MonadPlus (guard)
+import Css as Css
 import Data.Lens (Lens', assign, use)
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
 import Data.Symbol (SProxy(..))
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
+import Halogen.Css (classNames)
 import Halogen.Extra (blur, focus)
 import Halogen.HTML as HH
 import Halogen.HTML.Events.Extra (onValueInput_)
+import Halogen.HTML.Extra (maybeHTML)
 import Halogen.HTML.Properties as HP
 import Web.Event.Event (Event)
 import Web.HTML (HTMLElement)
@@ -91,8 +97,14 @@ type InputM msg slots m
       (Message msg)
       m
 
-type Slot msg id
-  = H.Slot Query (Message msg) id
+type Slot msg
+  = H.Slot Query (Message msg)
+
+type Component msg slots m
+  = H.Component HH.HTML Query (Props msg slots m) (Message msg) m
+
+label :: SProxy "input"
+label = SProxy
 
 -------------------------------------------------------------------------------
 -- Optics
@@ -139,13 +151,16 @@ mkInputProps value overrides =
   ]
     <> overrides
 
+renderError :: forall p i. Maybe String -> HH.HTML p i
+renderError error =
+  HH.div
+    [ classNames Css.inputError ]
+    [ maybeHTML HH.text error ]
+
 -------------------------------------------------------------------------------
 -- Component
 -------------------------------------------------------------------------------
-component ::
-  forall msg slots m.
-  MonadAff m =>
-  H.Component HH.HTML Query (Props msg slots m) (Message msg) m
+component :: forall msg slots m. MonadAff m => Component msg slots m
 component =
   H.mkComponent
     { initialState

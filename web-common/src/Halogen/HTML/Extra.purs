@@ -12,25 +12,13 @@ mapComponent ::
   HH.ComponentHTML b slots m
 mapComponent f = bimap (map f) f
 
-maybeHTML ::
-  forall action slots m a.
-  (a -> HH.ComponentHTML action slots m) ->
-  Maybe a ->
-  HH.ComponentHTML action slots m
+maybeHTML :: forall p i a. (a -> HH.HTML p i) -> Maybe a -> HH.HTML p i
 maybeHTML = maybe (HH.text "")
 
-maybeHTML' ::
-  forall action slots m a.
-  Maybe a ->
-  (a -> HH.ComponentHTML action slots m) ->
-  HH.ComponentHTML action slots m
+maybeHTML' :: forall p i a. Maybe a -> (a -> HH.HTML p i) -> HH.HTML p i
 maybeHTML' = flip maybeHTML
 
-whenHTML ::
-  forall action slots m.
-  Boolean ->
-  HH.ComponentHTML action slots m ->
-  HH.ComponentHTML action slots m
+whenHTML :: forall p i. Boolean -> HH.HTML p i -> HH.HTML p i
 whenHTML cond html = case cond of
   true -> html
   false -> HH.text ""
