@@ -7,6 +7,7 @@ module Template.Types
   , SlotError(..)
   , ValueError(..)
   , Action(..)
+  , contractNicknameSlot
   ) where
 
 import Prelude
@@ -19,10 +20,14 @@ import Marlowe.Extended.Metadata (ContractTemplate)
 import Marlowe.Semantics (Slot, TokenName)
 import WalletData.Types (WalletLibrary)
 
+contractNicknameSlot :: String
+contractNicknameSlot = "contractNickname"
+
 type State
   = { contractSetupStage :: ContractSetupStage
     , contractTemplate :: ContractTemplate
-    , contractNicknameInput :: InputField.State ContractNicknameError
+    , contractNickname :: String
+    , contractNicknameError :: Maybe ContractNicknameError
     , roleWalletInputs :: Map TokenName (InputField.State RoleError)
     , slotContentInputs :: Map String (InputField.State SlotError)
     , valueContentInputs :: Map String (InputField.State ValueError)
@@ -81,7 +86,7 @@ data Action
   = SetContractSetupStage ContractSetupStage
   | SetTemplate ContractTemplate
   | OpenCreateWalletCard TokenName
-  | ContractNicknameInputAction (InputField.Action ContractNicknameError)
+  | ContractNicknameInputChanged String
   | UpdateRoleWalletValidators
   | RoleWalletInputAction TokenName (InputField.Action RoleError)
   | SlotContentInputAction String (InputField.Action SlotError)
@@ -93,8 +98,8 @@ data Action
 instance actionIsEvent :: IsEvent Action where
   toEvent (SetContractSetupStage _) = Just $ defaultEvent "SetContractSetupStage"
   toEvent (SetTemplate _) = Just $ defaultEvent "SetTemplate"
-  toEvent (OpenCreateWalletCard tokenName) = Nothing
-  toEvent (ContractNicknameInputAction inputFieldAction) = toEvent inputFieldAction
+  toEvent (OpenCreateWalletCard _) = Nothing
+  toEvent (ContractNicknameInputChanged _) = Nothing
   toEvent UpdateRoleWalletValidators = Nothing
   toEvent (RoleWalletInputAction _ inputFieldAction) = toEvent inputFieldAction
   toEvent (SlotContentInputAction _ inputFieldAction) = toEvent inputFieldAction

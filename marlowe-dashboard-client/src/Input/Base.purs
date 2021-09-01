@@ -6,6 +6,7 @@ module Input.Base
   , Props
   , Query(..)
   , Slot
+  , Slots
   , State
   , component
   , defaultProps
@@ -49,6 +50,7 @@ data Query a
   = Focus a
   | Blur a
   | SetText String a
+  | Reset a
   | GetState (State -> a)
   | GetInputElement (HTMLElement -> a)
 
@@ -99,6 +101,9 @@ type InputM msg slots m
 
 type Slot msg
   = H.Slot Query (Message msg)
+
+type Slots slots id msg
+  = ( input :: Slot msg id | slots )
 
 type Component msg slots m
   = H.Component HH.HTML Query (Props msg slots m) (Message msg) m
@@ -204,6 +209,13 @@ handleQuery = case _ of
     when (currentValue /= value) do
       assign _stateValue value
       H.raise $ ValueChanged value
+    pure $ Just n
+  Reset n -> do
+    currentValue <- use _stateValue
+    when (currentValue /= "") do
+      assign _stateValue ""
+      H.raise $ ValueChanged ""
+    assign _pristine true
     pure $ Just n
   GetState q -> do
     (Just <<< q <<< innerStateToState) <$> H.get

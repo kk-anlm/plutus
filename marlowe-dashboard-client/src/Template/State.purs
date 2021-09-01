@@ -13,6 +13,7 @@ import Data.BigInteger (BigInteger)
 import Data.Lens (Lens', assign, set, use, view)
 import Data.Map (Map)
 import Data.Map as Map
+import Data.Map.Ordered.OMap as OMap
 import Data.Maybe (Maybe(..), isNothing)
 import Data.Set (toUnfoldable) as Set
 import Data.Traversable (for)
@@ -24,8 +25,9 @@ import Examples.PureScript.Escrow (contractTemplate, defaultSlotContent) as Escr
 import Examples.PureScript.EscrowWithCollateral (defaultSlotContent) as EscrowWithCollateral
 import Examples.PureScript.Swap (defaultSlotContent) as Swap
 import Examples.PureScript.ZeroCouponBond (defaultSlotContent) as ZeroCouponBond
-import Halogen (HalogenM, modify_)
+import Halogen (HalogenM, modify_, query, tell)
 import Halogen.Extra (mapMaybeSubmodule, mapSubmodule)
+import Input.Base as Input
 import InputField.Lenses (_value)
 import InputField.State (dummyState, handleAction, mkInitialState) as InputField
 import InputField.State (formatBigIntegerValue, getBigIntegerValue, validate)
@@ -35,13 +37,12 @@ import MainFrame.Types (ChildSlots, Msg)
 import Marlowe.Extended (Contract) as Extended
 import Marlowe.Extended (ContractType(..), resolveRelativeTimes, toCore)
 import Marlowe.Extended.Metadata (MetaData, NumberFormat(..), _extendedContract, _metaData, _valueParameterFormat, _valueParameterInfo)
-import Data.Map.Ordered.OMap as OMap
 import Marlowe.HasParties (getParties)
 import Marlowe.Semantics (Contract) as Semantic
 import Marlowe.Semantics (Party(..), Slot, TokenName)
 import Marlowe.Template (TemplateContent(..), _slotContent, _valueContent, fillTemplate, getPlaceholderIds, initializeTemplateContent)
-import Template.Lenses (_contractNicknameInput, _contractSetupStage, _contractTemplate, _roleWalletInput, _roleWalletInputs, _slotContentInput, _slotContentInputs, _valueContentInput, _valueContentInputs)
-import Template.Types (Action(..), ContractNicknameError(..), ContractSetupStage(..), Input, RoleError(..), SlotError(..), State, ValueError(..))
+import Template.Lenses (_contractNickname, _contractNicknameError, _contractSetupStage, _contractTemplate, _roleWalletInput, _roleWalletInputs, _slotContentInput, _slotContentInputs, _valueContentInput, _valueContentInputs)
+import Template.Types (Action(..), ContractNicknameError(..), ContractSetupStage(..), Input, RoleError(..), SlotError(..), State, ValueError(..), contractNicknameSlot)
 import WalletData.Types (WalletLibrary)
 
 -- see note [dummyState] in MainFrame.State
@@ -55,7 +56,8 @@ initialState =
   in
     { contractSetupStage: Start
     , contractTemplate: Escrow.contractTemplate
-    , contractNicknameInput: InputField.mkInitialState Nothing
+    , contractNickname: ""
+    , contractNicknameError: Nothing
     , roleWalletInputs: mempty
     , slotContentInputs: mempty
     , valueContentInputs: mempty
@@ -89,15 +91,16 @@ handleAction input@{ currentSlot } (SetTemplate contractTemplate) = do
     <<< set _roleWalletInputs roleWalletInputs
     <<< set _slotContentInputs slotContentInputs
     <<< set _valueContentInputs valueContentInputs
-  handleAction input $ ContractNicknameInputAction $ InputField.Reset
-  handleAction input $ ContractNicknameInputAction $ InputField.SetValidator contractNicknameError
+  void $ query Input.label contractNicknameSlot $ tell Input.Reset
   handleAction input UpdateRoleWalletValidators
   setInputValidators input _valueContentInputs ValueContentInputAction valueError
   setInputValidators input _slotContentInputs SlotContentInputAction slotError
 
 handleAction _ (OpenCreateWalletCard tokenName) = pure unit -- handled in Dashboard.State (see note [State] in MainFrame.State)
 
-handleAction _ (ContractNicknameInputAction inputFieldAction) = toContractNicknameInput $ InputField.handleAction inputFieldAction
+handleAction _ (ContractNicknameInputChanged value) = do
+  assign _contractNickname value
+  assign _contractNicknameError $ contractNicknameError value
 
 handleAction input@{ walletLibrary } UpdateRoleWalletValidators = setInputValidators input _roleWalletInputs RoleWalletInputAction $ roleError walletLibrary
 
@@ -192,13 +195,6 @@ instantiateExtendedContract currentSlot state =
     toCore absoluteFilledContract
 
 ------------------------------------------------------------
-toContractNicknameInput ::
-  forall m msg slots.
-  Functor m =>
-  HalogenM (InputField.State ContractNicknameError) (InputField.Action ContractNicknameError) slots msg m Unit ->
-  HalogenM State Action slots msg m Unit
-toContractNicknameInput = mapSubmodule _contractNicknameInput ContractNicknameInputAction
-
 toRoleWalletInput ::
   forall m msg slots.
   Functor m =>
@@ -253,15 +249,13 @@ valueError _ = Nothing
 templateSetupIsValid :: State -> Boolean
 templateSetupIsValid state =
   let
-    contractNicknameInput = view _contractNicknameInput state
-
     roleWalletInputs = view _roleWalletInputs state
 
     slotContentInputs = view _slotContentInputs state
 
     valueContentInputs = view _valueContentInputs state
   in
-    (isNothing $ validate contractNicknameInput)
+    (isNothing $ state.contractNicknameError)
       && (Map.isEmpty $ Map.mapMaybe validate roleWalletInputs)
       && (Map.isEmpty $ Map.mapMaybe validate slotContentInputs)
       && (Map.isEmpty $ Map.mapMaybe validate valueContentInputs)

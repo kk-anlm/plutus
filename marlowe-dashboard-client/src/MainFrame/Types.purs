@@ -18,6 +18,7 @@ import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Minutes)
 import Halogen as H
 import Halogen.Extra (LifecycleEvent)
+import Input.Base as IB
 import LoadingSubmitButton.Types as LoadingSubmitButton
 import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (Slot)
@@ -58,6 +59,7 @@ type ChildSlots
     , hintSlot :: forall query. H.Slot query Void String
     , submitButtonSlot :: H.Slot LoadingSubmitButton.Query LoadingSubmitButton.Message String
     , lifeCycleSlot :: forall query. H.Slot query LifecycleEvent String
+    , input :: IB.Slot Void String
     )
 
 ------------------------------------------------------------

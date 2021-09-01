@@ -5,13 +5,13 @@ import Control.Applicative.Free (hoistFreeAp)
 import Control.Monad.Free (hoistFree)
 import Control.Monad.State (get)
 import Data.Bifunctor (bimap)
-import Data.Foldable (for_)
+import Data.Foldable (traverse_)
 import Data.Lens (Lens', Traversal', preview, set, view)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.Newtype (over)
 import Data.Symbol (SProxy(..))
 import Data.Tuple (Tuple(..))
-import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Class (class MonadEffect)
 import Effect.Uncurried (EffectFn1, runEffectFn1)
 import Halogen (Component, ComponentHTML, HalogenF(..), HalogenM(..), RefLabel, Slot, getHTMLElementRef, mkComponent)
 import Halogen as H
@@ -25,6 +25,7 @@ import Halogen.Query.Input (Input)
 import Halogen.Query.Input as Input
 import Unsafe.Coerce (unsafeCoerce)
 import Web.HTML.HTMLElement (HTMLElement)
+import Web.HTML.HTMLElement as HTMLElement
 
 -- | This is a version of imapState that uses a lens.
 -- | With the official version it is easy to make a mistake and
@@ -119,10 +120,32 @@ mapMaybeSubmodule traversal wrapper submoduleDefaultState submoduleHandleAction 
 
 foreign import scrollIntoView_ :: EffectFn1 HTMLElement Unit
 
-scrollIntoView :: forall surface action slots output m. MonadEffect m => RefLabel -> HalogenM surface action slots output m Unit
-scrollIntoView ref = do
-  mElement <- getHTMLElementRef ref
-  for_ mElement (liftEffect <<< runEffectFn1 scrollIntoView_)
+scrollIntoView ::
+  forall surface action slots output m.
+  MonadEffect m =>
+  RefLabel ->
+  HalogenM surface action slots output m Unit
+scrollIntoView =
+  getHTMLElementRef
+    >=> traverse_ (runEffectFn1 scrollIntoView_ >>> H.liftEffect)
+
+focus ::
+  forall surface action slots output m.
+  MonadEffect m =>
+  RefLabel ->
+  HalogenM surface action slots output m Unit
+focus =
+  getHTMLElementRef
+    >=> traverse_ (HTMLElement.focus >>> H.liftEffect)
+
+blur ::
+  forall surface action slots output m.
+  MonadEffect m =>
+  RefLabel ->
+  HalogenM surface action slots output m Unit
+blur =
+  getHTMLElementRef
+    >=> traverse_ (HTMLElement.blur >>> H.liftEffect)
 
 -- NOTE:  There is a problem with this implementation of lifeCycleEvent that affect the use of normal components
 --        (like tooltips or hints) when a branch of the component tree uses this property.

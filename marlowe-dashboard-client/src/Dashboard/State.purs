@@ -45,7 +45,7 @@ import Marlowe.Execution.State (getAllPayments)
 import Marlowe.Extended.Metadata (_metaData)
 import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (MarloweData, MarloweParams, Party(..), Payee(..), Payment(..), Slot(..), _marloweContract)
-import Template.Lenses (_contractNicknameInput, _contractSetupStage, _contractTemplate, _roleWalletInputs)
+import Template.Lenses (_contractNickname, _contractSetupStage, _contractTemplate, _roleWalletInputs)
 import Template.State (dummyState, handleAction, initialState) as Template
 import Template.State (instantiateExtendedContract)
 import Template.Types (Action(..), State) as Template
@@ -320,7 +320,7 @@ handleAction input@{ currentSlot } (TemplateAction templateAction) = case templa
             case ajaxPendingFollowerApp of
               Left ajaxError -> addToast $ ajaxErrorToast "Failed to initialise contract." ajaxError
               Right followerAppId -> do
-                contractNickname <- use (_templateState <<< _contractNicknameInput <<< _value)
+                contractNickname <- use (_templateState <<< _contractNickname)
                 insertIntoContractNicknames followerAppId contractNickname
                 metaData <- use (_templateState <<< _contractTemplate <<< _metaData)
                 modifying _contracts $ insert followerAppId $ Contract.mkPlaceholderState contractNickname metaData contract

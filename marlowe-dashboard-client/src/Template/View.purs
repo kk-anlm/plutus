@@ -17,8 +17,11 @@ import Halogen.HTML.Events.Extra (onClick_)
 import Halogen.HTML.Properties (enabled, for, id_)
 import Hint.State (hint)
 import Humanize (contractIcon, humanizeValue)
+import Input.Base as InputBase
+import Input.Simple as InputSimple
 import InputField.Lenses (_value)
 import InputField.Types (State) as InputField
+import InputField.Types (inputErrorToString)
 import InputField.View (renderInput)
 import MainFrame.Types (ChildSlots)
 import Marlowe.Extended.Metadata (ContractTemplate, MetaData, NumberFormat(..), _contractName, _metaData, _slotParameterDescriptions, _valueParameterDescription, _valueParameterFormat, _valueParameterInfo)
@@ -29,15 +32,16 @@ import Marlowe.Template (orderContentUsingMetadata)
 import Material.Icons (Icon(..)) as Icon
 import Material.Icons (Icon, icon, icon_)
 import Popper (Placement(..))
-import Template.Lenses (_contractNicknameInput, _contractSetupStage, _contractTemplate, _roleWalletInputs, _slotContentInputs, _valueContentInputs)
+import Template.Lenses (_contractSetupStage, _contractTemplate, _roleWalletInputs, _slotContentInputs, _valueContentInputs)
 import Template.State (templateSetupIsValid)
-import Template.Types (Action(..), ContractSetupStage(..), RoleError, SlotError, State, ValueError)
+import Template.Types (Action(..), ContractSetupStage(..), RoleError, SlotError, State, ValueError, contractNicknameSlot)
 import Text.Markdown.TrimmedInline (markdownToHTML)
 import Tooltip.State (tooltip)
 import Tooltip.Types (ReferenceId(..))
 import WalletData.Lenses (_walletNickname)
 import WalletData.State (adaToken, getAda)
 import WalletData.Types (WalletLibrary)
+import Web.HTML.Event.EventTypes (offline)
 
 contractTemplateCard :: forall m. MonadAff m => WalletLibrary -> Assets -> State -> ComponentHTML Action ChildSlots m
 contractTemplateCard walletLibrary assets state =
@@ -169,22 +173,19 @@ contractSetup walletLibrary state =
 
     contractName = view (_contractName) metaData
 
-    contractNicknameInput = view _contractNicknameInput state
-
     roleWalletInputs = view _roleWalletInputs state
 
     slotContentInputs = view _slotContentInputs state
 
     valueContentInputs = view _valueContentInputs state
 
-    contractNicknameInputDisplayOptions =
-      { additionalCss: mempty
-      , id_: "contractNickname"
-      , placeholder: "E.g. My Marlowe contract"
-      , readOnly: false
-      , numberFormat: Nothing
-      , valueOptions: mempty
-      }
+    contractNicknameInputProps =
+      InputSimple.defaultProps
+        { id_ = Just "contractNickname"
+        , placeholder = Just "E.g. My Marlowe contract"
+        , value = state.contractNickname
+        , error = inputErrorToString <$> state.contractNicknameError
+        }
   in
     div
       [ classNames [ "h-full", "grid", "grid-rows-1fr-auto" ] ]
@@ -198,7 +199,12 @@ contractSetup walletLibrary state =
               [ label
                   [ classNames Css.nestedLabel ]
                   [ text $ contractName <> " title" ]
-              , ContractNicknameInputAction <$> renderInput contractNicknameInputDisplayOptions contractNicknameInput
+              , InputSimple.render
+                  contractNicknameSlot
+                  contractNicknameInputProps
+                  $ case _ of
+                      InputBase.ValueChanged value -> ContractNicknameInputChanged value
+                      InputBase.Emitted a -> absurd a
               ]
           , roleInputs walletLibrary metaData roleWalletInputs
           , parameterInputs metaData slotContentInputs valueContentInputs
