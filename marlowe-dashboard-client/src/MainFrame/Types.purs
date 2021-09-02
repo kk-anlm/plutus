@@ -5,12 +5,13 @@ module MainFrame.Types
   , Query(..)
   , Msg(..)
   , Action(..)
+  , InputSlot(..)
   ) where
 
 import Prelude
 import Analytics (class IsEvent, defaultEvent, toEvent)
 import Contract.Types (State) as Contract
-import Dashboard.Types (Action, State) as Dashboard
+import Dashboard.Types (Action, State, InputSlot) as Dashboard
 import Data.Either (Either)
 import Data.Generic.Rep (class Generic)
 import Data.Map (Map)
@@ -18,7 +19,7 @@ import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Minutes)
 import Halogen as H
 import Halogen.Extra (LifecycleEvent)
-import Input.Base as IB
+import Input.Base as Input
 import LoadingSubmitButton.Types as LoadingSubmitButton
 import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (Slot)
@@ -53,13 +54,20 @@ instance showWebSocketStatus :: Show WebSocketStatus where
   show (WebSocketClosed Nothing) = "WebSocketClosed"
   show (WebSocketClosed (Just closeEvent)) = "WebSocketClosed " <> WS.reason closeEvent
 
+data InputSlot
+  = DashboardInput Dashboard.InputSlot
+
+derive instance eqInputSlot :: Eq InputSlot
+
+derive instance ordInputSlot :: Ord InputSlot
+
 ------------------------------------------------------------
 type ChildSlots
   = ( tooltipSlot :: forall query. H.Slot query Void ReferenceId
     , hintSlot :: forall query. H.Slot query Void String
     , submitButtonSlot :: H.Slot LoadingSubmitButton.Query LoadingSubmitButton.Message String
     , lifeCycleSlot :: forall query. H.Slot query LifecycleEvent String
-    , input :: IB.Slot Void String
+    , input :: Input.Slot Void InputSlot
     )
 
 ------------------------------------------------------------

@@ -2,12 +2,12 @@ module Template.Types
   ( State
   , ContractSetupStage(..)
   , Input
+  , InputSlot(..)
   , ContractNicknameError(..)
   , RoleError(..)
   , SlotError(..)
   , ValueError(..)
   , Action(..)
-  , contractNicknameSlot
   ) where
 
 import Prelude
@@ -20,9 +20,6 @@ import Marlowe.Extended.Metadata (ContractTemplate)
 import Marlowe.Semantics (Slot, TokenName)
 import WalletData.Types (WalletLibrary)
 
-contractNicknameSlot :: String
-contractNicknameSlot = "contractNickname"
-
 type State
   = { contractSetupStage :: ContractSetupStage
     , contractTemplate :: ContractTemplate
@@ -32,6 +29,13 @@ type State
     , slotContentInputs :: Map String (InputField.State SlotError)
     , valueContentInputs :: Map String (InputField.State ValueError)
     }
+
+data InputSlot
+  = ContractNicknameInput
+
+derive instance eqInputSlot :: Eq InputSlot
+
+derive instance ordInputSlot :: Ord InputSlot
 
 data ContractSetupStage
   = Start

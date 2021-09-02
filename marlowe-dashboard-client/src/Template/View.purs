@@ -2,6 +2,7 @@ module Template.View (contractTemplateCard) where
 
 import Prelude hiding (div)
 import Css as Css
+import Dashboard.Types (InputSlot(..))
 import Data.Lens (view)
 import Data.List (toUnfoldable) as List
 import Data.Map (Map)
@@ -17,13 +18,12 @@ import Halogen.HTML.Events.Extra (onClick_)
 import Halogen.HTML.Properties (enabled, for, id_)
 import Hint.State (hint)
 import Humanize (contractIcon, humanizeValue)
-import Input.Base as InputBase
 import Input.Text as TInput
 import InputField.Lenses (_value)
 import InputField.Types (State) as InputField
 import InputField.Types (inputErrorToString)
 import InputField.View (renderInput)
-import MainFrame.Types (ChildSlots)
+import MainFrame.Types (ChildSlots, InputSlot(..))
 import Marlowe.Extended.Metadata (ContractTemplate, MetaData, NumberFormat(..), _contractName, _metaData, _slotParameterDescriptions, _valueParameterDescription, _valueParameterFormat, _valueParameterInfo)
 import Marlowe.Market (contractTemplates)
 import Marlowe.PAB (contractCreationFee)
@@ -34,7 +34,7 @@ import Material.Icons (Icon, icon, icon_)
 import Popper (Placement(..))
 import Template.Lenses (_contractSetupStage, _contractTemplate, _roleWalletInputs, _slotContentInputs, _valueContentInputs)
 import Template.State (templateSetupIsValid)
-import Template.Types (Action(..), ContractSetupStage(..), RoleError, SlotError, State, ValueError, contractNicknameSlot)
+import Template.Types (Action(..), ContractSetupStage(..), InputSlot(..), RoleError, SlotError, State, ValueError)
 import Text.Markdown.TrimmedInline (markdownToHTML)
 import Tooltip.State (tooltip)
 import Tooltip.Types (ReferenceId(..))
@@ -199,11 +199,11 @@ contractSetup walletLibrary state =
                   [ classNames Css.nestedLabel ]
                   [ text $ contractName <> " title" ]
               , TInput.render
-                  contractNicknameSlot
+                  (DashboardInput $ ContractTemplateInput ContractNicknameInput)
                   contractNicknameInputProps
                   $ case _ of
-                      InputBase.ValueChanged value -> ContractNicknameInputChanged value
-                      InputBase.Emitted a -> absurd a
+                      TInput.ValueChanged value -> ContractNicknameInputChanged value
+                      TInput.Emitted a -> absurd a
               ]
           , roleInputs walletLibrary metaData roleWalletInputs
           , parameterInputs metaData slotContentInputs valueContentInputs

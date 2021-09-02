@@ -3,6 +3,7 @@ module Dashboard.Types
   , Card(..)
   , ContractFilter(..)
   , Input
+  , InputSlot(..)
   , Action(..)
   ) where
 
@@ -16,7 +17,7 @@ import Marlowe.Client (ContractHistory)
 import Marlowe.Execution.Types (NamedAction)
 import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (MarloweData, MarloweParams, Slot)
-import Template.Types (Action, State) as Template
+import Template.Types (Action, State, InputSlot) as Template
 import WalletData.Types (Action, State) as WalletData
 import WalletData.Types (WalletDetails, WalletNickname)
 
@@ -40,6 +41,13 @@ data Card
   | ContractActionConfirmationCard PlutusAppId NamedAction
 
 derive instance eqCard :: Eq Card
+
+data InputSlot
+  = ContractTemplateInput Template.InputSlot
+
+derive instance eqInputSlot :: Eq InputSlot
+
+derive instance ordInputSlot :: Ord InputSlot
 
 data ContractFilter
   = Running

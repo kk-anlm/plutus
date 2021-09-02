@@ -8,6 +8,7 @@ module Template.State
 
 import Prelude
 import Control.Monad.Reader (class MonadAsk)
+import Dashboard.Types (InputSlot(..))
 import Data.Array (mapMaybe) as Array
 import Data.BigInteger (BigInteger)
 import Data.Lens (Lens', assign, set, use, view)
@@ -26,14 +27,14 @@ import Examples.PureScript.EscrowWithCollateral (defaultSlotContent) as EscrowWi
 import Examples.PureScript.Swap (defaultSlotContent) as Swap
 import Examples.PureScript.ZeroCouponBond (defaultSlotContent) as ZeroCouponBond
 import Halogen (HalogenM, modify_, query, tell)
-import Halogen.Extra (mapMaybeSubmodule, mapSubmodule)
-import Input.Base as Input
+import Halogen.Extra (mapMaybeSubmodule)
+import Input.Text as TInput
 import InputField.Lenses (_value)
 import InputField.State (dummyState, handleAction, mkInitialState) as InputField
 import InputField.State (formatBigIntegerValue, getBigIntegerValue, validate)
 import InputField.Types (Action(..), State) as InputField
 import InputField.Types (class InputFieldError)
-import MainFrame.Types (ChildSlots, Msg)
+import MainFrame.Types (ChildSlots, InputSlot(..), Msg)
 import Marlowe.Extended (Contract) as Extended
 import Marlowe.Extended (ContractType(..), resolveRelativeTimes, toCore)
 import Marlowe.Extended.Metadata (MetaData, NumberFormat(..), _extendedContract, _metaData, _valueParameterFormat, _valueParameterInfo)
@@ -42,7 +43,7 @@ import Marlowe.Semantics (Contract) as Semantic
 import Marlowe.Semantics (Party(..), Slot, TokenName)
 import Marlowe.Template (TemplateContent(..), _slotContent, _valueContent, fillTemplate, getPlaceholderIds, initializeTemplateContent)
 import Template.Lenses (_contractNickname, _contractNicknameError, _contractSetupStage, _contractTemplate, _roleWalletInput, _roleWalletInputs, _slotContentInput, _slotContentInputs, _valueContentInput, _valueContentInputs)
-import Template.Types (Action(..), ContractNicknameError(..), ContractSetupStage(..), Input, RoleError(..), SlotError(..), State, ValueError(..), contractNicknameSlot)
+import Template.Types (Action(..), ContractNicknameError(..), ContractSetupStage(..), Input, InputSlot(..), RoleError(..), SlotError(..), State, ValueError(..))
 import WalletData.Types (WalletLibrary)
 
 -- see note [dummyState] in MainFrame.State
@@ -91,7 +92,7 @@ handleAction input@{ currentSlot } (SetTemplate contractTemplate) = do
     <<< set _roleWalletInputs roleWalletInputs
     <<< set _slotContentInputs slotContentInputs
     <<< set _valueContentInputs valueContentInputs
-  void $ query Input.label contractNicknameSlot $ tell Input.Reset
+  void $ query TInput.label (DashboardInput $ ContractTemplateInput ContractNicknameInput) $ tell TInput.Reset
   handleAction input UpdateRoleWalletValidators
   setInputValidators input _valueContentInputs ValueContentInputAction valueError
   setInputValidators input _slotContentInputs SlotContentInputAction slotError

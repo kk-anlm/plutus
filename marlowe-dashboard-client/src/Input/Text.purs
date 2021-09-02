@@ -2,6 +2,7 @@ module Input.Text
   ( Props
   , defaultProps
   , render
+  , module Base
   ) where
 
 import Prelude
@@ -14,7 +15,18 @@ import Halogen as H
 import Halogen.Css (classNames)
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
-import Input.Base as IB
+import Input.Base
+  ( Action
+  , Component
+  , Message(..)
+  , Query(..)
+  , Slot
+  , Slots
+  , State
+  , label
+  )
+  as Base
+import Input.Base (component, mkInputProps, renderError)
 
 type Props
   = { additionalCss :: Array String
@@ -41,10 +53,10 @@ render ::
   MonadAff m =>
   slot ->
   Props ->
-  (IB.Message msg -> action) ->
-  H.ComponentHTML action (IB.Slots slots slot msg) m
+  (Base.Message msg -> action) ->
+  H.ComponentHTML action (Base.Slots slots slot msg) m
 render slot props@{ additionalCss, id_, readOnly, placeholder } handle =
-  HH.slot IB.label slot IB.component
+  HH.slot Base.label slot component
     { value: props.value
     , error: props.error
     , render: renderInner
@@ -53,7 +65,7 @@ render slot props@{ additionalCss, id_, readOnly, placeholder } handle =
   where
   renderInner { value, error } =
     HH.div_
-      [ HH.input $ IB.mkInputProps value
+      [ HH.input $ mkInputProps value
           $ catMaybes
               [ pure $ HP.type_ InputText
               , pure $ classNames $ (Css.input $ isNothing error) <> additionalCss
@@ -61,5 +73,5 @@ render slot props@{ additionalCss, id_, readOnly, placeholder } handle =
               , pure $ HP.readOnly readOnly
               , HP.placeholder <$> placeholder
               ]
-      , IB.renderError error
+      , renderError error
       ]
