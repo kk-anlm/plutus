@@ -18,6 +18,7 @@ import Clipboard (class MonadClipboard)
 import Clipboard (handleAction) as Clipboard
 import Control.Monad.Reader (class MonadAsk)
 import Dashboard.Types (Action(..)) as Dashboard
+import Dashboard.Types (InputSlot(..))
 import Data.Array (any)
 import Data.BigInteger (BigInteger)
 import Data.Char.Unicode (isAlphaNum)
@@ -31,28 +32,28 @@ import Data.String.CodeUnits (toCharArray)
 import Data.UUID (emptyUUID, parseUUID)
 import Effect.Aff.Class (class MonadAff)
 import Env (Env)
-import Halogen (HalogenM)
+import Halogen (HalogenM, query, tell)
 import Halogen.Extra (mapSubmodule)
 import Halogen.Query.HalogenM (mapAction)
-import InputField.Lenses (_value)
-import InputField.State (handleAction, mkInitialState) as InputField
-import InputField.Types (Action(..), State) as InputField
+import Input.Text as TInput
 import MainFrame.Types (Action(..)) as MainFrame
-import MainFrame.Types (ChildSlots, Msg)
+import MainFrame.Types (ChildSlots, InputSlot(..), Msg, walletDataInputSlot)
 import Marlowe.PAB (PlutusAppId(..))
 import Marlowe.Semantics (Assets, Token(..))
 import Network.RemoteData (RemoteData(..), fromEither)
 import Toast.Types (errorToast, successToast)
 import Types (WebData)
-import WalletData.Lenses (_cardSection, _remoteWalletInfo, _walletIdInput, _walletLibrary, _walletNickname, _walletNicknameInput)
-import WalletData.Types (Action(..), CardSection(..), PubKeyHash(..), State, Wallet(..), WalletDetails, WalletIdError(..), WalletInfo(..), WalletLibrary, WalletNickname, WalletNicknameError(..))
+import WalletData.Lenses (_cardSection, _remoteWalletInfo, _walletId, _walletIdError, _walletLibrary, _walletNickname, _walletNicknameError)
+import WalletData.Types (Action(..), CardSection(..), InputSlot(..), PubKeyHash(..), State, Wallet(..), WalletDetails, WalletIdError(..), WalletInfo(..), WalletLibrary, WalletNickname, WalletNicknameError(..))
 
 mkInitialState :: WalletLibrary -> State
 mkInitialState walletLibrary =
   { walletLibrary
   , cardSection: Home
-  , walletNicknameInput: InputField.mkInitialState Nothing
-  , walletIdInput: InputField.mkInitialState Nothing
+  , walletNickname: ""
+  , walletNicknameError: Nothing
+  , walletId: ""
+  , walletIdError: Nothing
   , remoteWalletInfo: NotAsked
   }
 
@@ -88,19 +89,20 @@ handleAction CloseWalletDataCard = callMainFrameAction $ MainFrame.DashboardActi
 handleAction (SetCardSection cardSection) = do
   case cardSection of
     NewWallet _ -> do
-      walletLibrary <- use _walletLibrary
       assign _remoteWalletInfo NotAsked
-      handleAction $ WalletNicknameInputAction InputField.Reset
-      handleAction $ WalletNicknameInputAction $ InputField.SetValidator $ walletNicknameError walletLibrary
-      handleAction $ WalletIdInputAction InputField.Reset
-      handleAction $ WalletIdInputAction $ InputField.SetValidator $ walletIdError NotAsked walletLibrary
+      void
+        $ query TInput.label (walletDataInputSlot WalletIdInput)
+        $ tell TInput.Reset
+      void
+        $ query TInput.label (walletDataInputSlot WalletNicknameInput)
+        $ tell TInput.Reset
     _ -> pure unit
   assign _cardSection cardSection
 
 handleAction (SaveWallet mTokenName) = do
   oldWalletLibrary <- use _walletLibrary
-  walletNickname <- use (_walletNicknameInput <<< _value)
-  walletIdString <- use (_walletIdInput <<< _value)
+  walletNickname <- use _walletNickname
+  walletIdString <- use _walletId
   remoteWalletInfo <- use _remoteWalletInfo
   let
     mWalletId = parsePlutusAppId walletIdString
@@ -128,27 +130,28 @@ handleAction (SaveWallet mTokenName) = do
 
 handleAction CancelNewContactForRole = pure unit -- handled in Dashboard.State
 
-handleAction (WalletNicknameInputAction inputFieldAction) = toWalletNicknameInput $ InputField.handleAction inputFieldAction
+handleAction (WalletNicknameChanged value) = do
+  walletLibrary <- use _walletLibrary
+  assign _walletNickname value
+  assign _walletNicknameError $ walletNicknameError walletLibrary value
 
-handleAction (WalletIdInputAction inputFieldAction) = do
-  case inputFieldAction of
-    InputField.SetValue walletIdString -> do
-      -- note we handle the inputFieldAction _first_ so that the InputField value is set - otherwise the
-      -- validation feedback is wrong while the rest is happening
-      toWalletIdInput $ InputField.handleAction inputFieldAction
-      handleAction $ SetRemoteWalletInfo NotAsked
-      -- if this is a valid contract ID ...
-      for_ (parsePlutusAppId walletIdString) \walletId -> do
-        handleAction $ SetRemoteWalletInfo Loading
-        -- .. lookup wallet info
-        ajaxWalletInfo <- lookupWalletInfo walletId
-        handleAction $ SetRemoteWalletInfo $ fromEither ajaxWalletInfo
-    _ -> toWalletIdInput $ InputField.handleAction inputFieldAction
+handleAction (WalletIdChanged value) = do
+  -- note we assign the value _first_ so that the InputField value is set - otherwise the
+  -- validation feedback is wrong while the rest is happening
+  assign _walletId value
+  handleAction $ SetRemoteWalletInfo NotAsked
+  -- if this is a valid contract ID ...
+  for_ (parsePlutusAppId value) \walletId -> do
+    handleAction $ SetRemoteWalletInfo Loading
+    -- .. lookup wallet info
+    ajaxWalletInfo <- lookupWalletInfo walletId
+    handleAction $ SetRemoteWalletInfo $ fromEither ajaxWalletInfo
 
 handleAction (SetRemoteWalletInfo remoteWalletInfo) = do
   assign _remoteWalletInfo remoteWalletInfo
   walletLibrary <- use _walletLibrary
-  handleAction $ WalletIdInputAction $ InputField.SetValidator $ walletIdError remoteWalletInfo walletLibrary
+  walletId <- use _walletId
+  assign _walletIdError $ walletIdError remoteWalletInfo walletLibrary walletId
 
 handleAction (UseWallet walletNickname companionAppId) = do
   ajaxWalletDetails <- lookupWalletDetails companionAppId
@@ -164,21 +167,6 @@ handleAction (UseWallet walletNickname companionAppId) = do
 handleAction (ClipboardAction clipboardAction) = do
   mapAction ClipboardAction $ Clipboard.handleAction clipboardAction
   addToast $ successToast "Copied to clipboard"
-
-------------------------------------------------------------
-toWalletNicknameInput ::
-  forall m msg slots.
-  Functor m =>
-  HalogenM (InputField.State WalletNicknameError) (InputField.Action WalletNicknameError) slots msg m Unit ->
-  HalogenM State Action slots msg m Unit
-toWalletNicknameInput = mapSubmodule _walletNicknameInput WalletNicknameInputAction
-
-toWalletIdInput ::
-  forall m msg slots.
-  Functor m =>
-  HalogenM (InputField.State WalletIdError) (InputField.Action WalletIdError) slots msg m Unit ->
-  HalogenM State Action slots msg m Unit
-toWalletIdInput = mapSubmodule _walletIdInput WalletIdInputAction
 
 ------------------------------------------------------------
 adaToken :: Token

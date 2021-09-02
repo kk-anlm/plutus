@@ -1,8 +1,9 @@
 module WalletData.Lenses
   ( _walletLibrary
   , _cardSection
-  , _walletNicknameInput
-  , _walletIdInput
+  , _walletNicknameError
+  , _walletId
+  , _walletIdError
   , _remoteWalletInfo
   , _walletNickname
   , _companionAppId
@@ -22,11 +23,10 @@ import Data.Lens.Record (prop)
 import Data.Map (Map)
 import Data.Maybe (Maybe)
 import Data.Symbol (SProxy(..))
-import InputField.Types (State) as InputField
 import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (Assets, MarloweData, MarloweParams, PubKey)
 import Types (WebData)
-import WalletData.Types (CardSection, PubKeyHash, State, Wallet, WalletIdError, WalletInfo, WalletLibrary, WalletNickname, WalletNicknameError, WalletDetails)
+import WalletData.Types (CardSection, PubKeyHash, State, Wallet, WalletIdError, WalletInfo, WalletLibrary, WalletNicknameError, WalletDetails)
 
 _walletLibrary :: Lens' State WalletLibrary
 _walletLibrary = prop (SProxy :: SProxy "walletLibrary")
@@ -34,19 +34,22 @@ _walletLibrary = prop (SProxy :: SProxy "walletLibrary")
 _cardSection :: Lens' State CardSection
 _cardSection = prop (SProxy :: SProxy "cardSection")
 
-_walletNicknameInput :: Lens' State (InputField.State WalletNicknameError)
-_walletNicknameInput = prop (SProxy :: SProxy "walletNicknameInput")
+_walletNickname :: forall r a. Lens' { walletNickname :: a | r } a
+_walletNickname = prop (SProxy :: SProxy "walletNickname")
 
-_walletIdInput :: Lens' State (InputField.State WalletIdError)
-_walletIdInput = prop (SProxy :: SProxy "walletIdInput")
+_walletNicknameError :: Lens' State (Maybe WalletNicknameError)
+_walletNicknameError = prop (SProxy :: SProxy "walletNicknameError")
+
+_walletId :: Lens' State String
+_walletId = prop (SProxy :: SProxy "walletId")
+
+_walletIdError :: Lens' State (Maybe WalletIdError)
+_walletIdError = prop (SProxy :: SProxy "walletIdError")
 
 _remoteWalletInfo :: Lens' State (WebData WalletInfo)
 _remoteWalletInfo = prop (SProxy :: SProxy "remoteWalletInfo")
 
 ------------------------------------------------------------
-_walletNickname :: Lens' WalletDetails WalletNickname
-_walletNickname = prop (SProxy :: SProxy "walletNickname")
-
 _companionAppId :: Lens' WalletDetails PlutusAppId
 _companionAppId = prop (SProxy :: SProxy "companionAppId")
 

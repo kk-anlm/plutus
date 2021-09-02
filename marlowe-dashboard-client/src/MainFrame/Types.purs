@@ -6,12 +6,14 @@ module MainFrame.Types
   , Msg(..)
   , Action(..)
   , InputSlot(..)
+  , walletDataInputSlot
+  , contractTemplateInputSlot
   ) where
 
 import Prelude
 import Analytics (class IsEvent, defaultEvent, toEvent)
 import Contract.Types (State) as Contract
-import Dashboard.Types (Action, State, InputSlot) as Dashboard
+import Dashboard.Types (Action, State, InputSlot(..)) as Dashboard
 import Data.Either (Either)
 import Data.Generic.Rep (class Generic)
 import Data.Map (Map)
@@ -24,9 +26,11 @@ import LoadingSubmitButton.Types as LoadingSubmitButton
 import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (Slot)
 import Plutus.PAB.Webserver.Types (CombinedWSStreamToClient)
+import Template.Types (InputSlot) as Template
 import Toast.Types (Action, State) as Toast
 import Tooltip.Types (ReferenceId)
 import Types (CombinedWSStreamToServer)
+import WalletData.Types (InputSlot) as WalletData
 import WalletData.Types (WalletDetails, WalletLibrary)
 import Web.Socket.Event.CloseEvent (CloseEvent, reason) as WS
 import WebSocket.Support (FromSocket) as WS
@@ -60,6 +64,12 @@ data InputSlot
 derive instance eqInputSlot :: Eq InputSlot
 
 derive instance ordInputSlot :: Ord InputSlot
+
+walletDataInputSlot :: WalletData.InputSlot -> InputSlot
+walletDataInputSlot = DashboardInput <<< Dashboard.WalletDataInput
+
+contractTemplateInputSlot :: Template.InputSlot -> InputSlot
+contractTemplateInputSlot = DashboardInput <<< Dashboard.ContractTemplateInput
 
 ------------------------------------------------------------
 type ChildSlots

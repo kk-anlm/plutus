@@ -24,6 +24,7 @@ import Input.Base
   , Slots
   , State
   , label
+  , defaultHandleMessage
   )
   as Base
 import Input.Base (component, mkInputProps, renderError)

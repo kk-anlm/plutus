@@ -10,10 +10,11 @@ module WalletData.Types
   , WalletNicknameError(..)
   , WalletIdError(..)
   , Action(..)
+  , InputSlot(..)
   ) where
 
 import Prelude
-import Analytics (class IsEvent, defaultEvent, toEvent)
+import Analytics (class IsEvent, defaultEvent)
 import Clipboard (Action) as Clipboard
 import Data.BigInteger (BigInteger)
 import Data.Generic.Rep (class Generic)
@@ -22,7 +23,6 @@ import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Foreign.Class (class Encode, class Decode)
 import Foreign.Generic (defaultOptions, genericDecode, genericEncode)
-import InputField.Types (Action, State) as InputField
 import InputField.Types (class InputFieldError)
 import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (Assets, MarloweData, MarloweParams, PubKey)
@@ -31,10 +31,20 @@ import Types (WebData)
 type State
   = { walletLibrary :: WalletLibrary
     , cardSection :: CardSection
-    , walletNicknameInput :: InputField.State WalletNicknameError
-    , walletIdInput :: InputField.State WalletIdError
+    , walletNickname :: String
+    , walletNicknameError :: Maybe WalletNicknameError
+    , walletId :: String
+    , walletIdError :: Maybe WalletIdError
     , remoteWalletInfo :: WebData WalletInfo
     }
+
+data InputSlot
+  = WalletNicknameInput
+  | WalletIdInput
+
+derive instance eqInputSlot :: Eq InputSlot
+
+derive instance ordInputSlot :: Ord InputSlot
 
 type WalletLibrary
   = Map WalletNickname WalletDetails
@@ -146,8 +156,8 @@ data Action
   | SetCardSection CardSection
   | SaveWallet (Maybe String)
   | CancelNewContactForRole
-  | WalletNicknameInputAction (InputField.Action WalletNicknameError)
-  | WalletIdInputAction (InputField.Action WalletIdError)
+  | WalletNicknameChanged String
+  | WalletIdChanged String
   | SetRemoteWalletInfo (WebData WalletInfo)
   | UseWallet WalletNickname PlutusAppId
   | ClipboardAction Clipboard.Action
@@ -157,8 +167,8 @@ instance actionIsEvent :: IsEvent Action where
   toEvent (SetCardSection _) = Just $ defaultEvent "SetCardSection"
   toEvent (SaveWallet _) = Just $ defaultEvent "SaveWallet"
   toEvent CancelNewContactForRole = Nothing
-  toEvent (WalletNicknameInputAction inputFieldAction) = toEvent inputFieldAction
-  toEvent (WalletIdInputAction inputFieldAction) = toEvent inputFieldAction
+  toEvent (WalletNicknameChanged _) = Nothing
+  toEvent (WalletIdChanged _) = Nothing
   toEvent (SetRemoteWalletInfo _) = Nothing
   toEvent (UseWallet _ _) = Just $ defaultEvent "UseWallet"
   toEvent (ClipboardAction _) = Just $ defaultEvent "ClipboardAction"

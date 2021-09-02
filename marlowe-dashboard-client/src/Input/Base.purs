@@ -10,6 +10,7 @@ module Input.Base
   , State
   , component
   , defaultProps
+  , defaultHandleMessage
   , label
   , mkInputProps
   , renderError
@@ -45,6 +46,11 @@ type Props msg slots m
 data Message msg
   = ValueChanged String
   | Emitted msg
+
+defaultHandleMessage :: forall a. (String -> a) -> Message Void -> a
+defaultHandleMessage f (ValueChanged v) = f v
+
+defaultHandleMessage _ (Emitted m) = absurd m
 
 data Query a
   = Focus a

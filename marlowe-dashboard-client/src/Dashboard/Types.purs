@@ -18,7 +18,7 @@ import Marlowe.Execution.Types (NamedAction)
 import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (MarloweData, MarloweParams, Slot)
 import Template.Types (Action, State, InputSlot) as Template
-import WalletData.Types (Action, State) as WalletData
+import WalletData.Types (Action, State, InputSlot) as WalletData
 import WalletData.Types (WalletDetails, WalletNickname)
 
 type State
@@ -44,6 +44,7 @@ derive instance eqCard :: Eq Card
 
 data InputSlot
   = ContractTemplateInput Template.InputSlot
+  | WalletDataInput WalletData.InputSlot
 
 derive instance eqInputSlot :: Eq InputSlot
 

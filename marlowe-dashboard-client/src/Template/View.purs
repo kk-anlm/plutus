@@ -23,7 +23,7 @@ import InputField.Lenses (_value)
 import InputField.Types (State) as InputField
 import InputField.Types (inputErrorToString)
 import InputField.View (renderInput)
-import MainFrame.Types (ChildSlots, InputSlot(..))
+import MainFrame.Types (ChildSlots, InputSlot(..), contractTemplateInputSlot)
 import Marlowe.Extended.Metadata (ContractTemplate, MetaData, NumberFormat(..), _contractName, _metaData, _slotParameterDescriptions, _valueParameterDescription, _valueParameterFormat, _valueParameterInfo)
 import Marlowe.Market (contractTemplates)
 import Marlowe.PAB (contractCreationFee)
@@ -199,11 +199,9 @@ contractSetup walletLibrary state =
                   [ classNames Css.nestedLabel ]
                   [ text $ contractName <> " title" ]
               , TInput.render
-                  (DashboardInput $ ContractTemplateInput ContractNicknameInput)
+                  (contractTemplateInputSlot ContractNicknameInput)
                   contractNicknameInputProps
-                  $ case _ of
-                      TInput.ValueChanged value -> ContractNicknameInputChanged value
-                      TInput.Emitted a -> absurd a
+                  $ TInput.defaultHandleMessage ContractNicknameInputChanged
               ]
           , roleInputs walletLibrary metaData roleWalletInputs
           , parameterInputs metaData slotContentInputs valueContentInputs

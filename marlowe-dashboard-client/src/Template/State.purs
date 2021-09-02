@@ -34,7 +34,7 @@ import InputField.State (dummyState, handleAction, mkInitialState) as InputField
 import InputField.State (formatBigIntegerValue, getBigIntegerValue, validate)
 import InputField.Types (Action(..), State) as InputField
 import InputField.Types (class InputFieldError)
-import MainFrame.Types (ChildSlots, InputSlot(..), Msg)
+import MainFrame.Types (ChildSlots, InputSlot(..), Msg, contractTemplateInputSlot)
 import Marlowe.Extended (Contract) as Extended
 import Marlowe.Extended (ContractType(..), resolveRelativeTimes, toCore)
 import Marlowe.Extended.Metadata (MetaData, NumberFormat(..), _extendedContract, _metaData, _valueParameterFormat, _valueParameterInfo)
@@ -92,7 +92,9 @@ handleAction input@{ currentSlot } (SetTemplate contractTemplate) = do
     <<< set _roleWalletInputs roleWalletInputs
     <<< set _slotContentInputs slotContentInputs
     <<< set _valueContentInputs valueContentInputs
-  void $ query TInput.label (DashboardInput $ ContractTemplateInput ContractNicknameInput) $ tell TInput.Reset
+  void
+    $ query TInput.label (contractTemplateInputSlot ContractNicknameInput)
+    $ tell TInput.Reset
   handleAction input UpdateRoleWalletValidators
   setInputValidators input _valueContentInputs ValueContentInputAction valueError
   setInputValidators input _slotContentInputs SlotContentInputAction slotError
