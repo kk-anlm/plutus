@@ -1,4 +1,4 @@
-module Input.Simple
+module Input.Text
   ( Props
   , defaultProps
   , render

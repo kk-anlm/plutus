@@ -18,7 +18,7 @@ import Halogen.HTML.Properties (enabled, for, id_)
 import Hint.State (hint)
 import Humanize (contractIcon, humanizeValue)
 import Input.Base as InputBase
-import Input.Simple as InputSimple
+import Input.Text as TInput
 import InputField.Lenses (_value)
 import InputField.Types (State) as InputField
 import InputField.Types (inputErrorToString)
@@ -41,7 +41,6 @@ import Tooltip.Types (ReferenceId(..))
 import WalletData.Lenses (_walletNickname)
 import WalletData.State (adaToken, getAda)
 import WalletData.Types (WalletLibrary)
-import Web.HTML.Event.EventTypes (offline)
 
 contractTemplateCard :: forall m. MonadAff m => WalletLibrary -> Assets -> State -> ComponentHTML Action ChildSlots m
 contractTemplateCard walletLibrary assets state =
@@ -180,7 +179,7 @@ contractSetup walletLibrary state =
     valueContentInputs = view _valueContentInputs state
 
     contractNicknameInputProps =
-      InputSimple.defaultProps
+      TInput.defaultProps
         { id_ = Just "contractNickname"
         , placeholder = Just "E.g. My Marlowe contract"
         , value = state.contractNickname
@@ -199,7 +198,7 @@ contractSetup walletLibrary state =
               [ label
                   [ classNames Css.nestedLabel ]
                   [ text $ contractName <> " title" ]
-              , InputSimple.render
+              , TInput.render
                   contractNicknameSlot
                   contractNicknameInputProps
                   $ case _ of
