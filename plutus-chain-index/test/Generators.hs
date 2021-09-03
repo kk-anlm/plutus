@@ -49,7 +49,7 @@ import           Ledger.Value                (Value)
 import           Plutus.ChainIndex.Tx        (ChainIndexTx (..), ChainIndexTxOutputs (..))
 import           Plutus.ChainIndex.TxIdState (TxIdState)
 import qualified Plutus.ChainIndex.TxIdState as TxIdState
-import           Plutus.ChainIndex.Types     (BlockId (..), Tip (..))
+import           Plutus.ChainIndex.Types     (BlockId (..), BlockNumber (..), Tip (..))
 import           Plutus.ChainIndex.UtxoState (TxUtxoBalance (..), fromTx)
 import qualified PlutusTx.Prelude            as PlutusTx
 
@@ -237,7 +237,7 @@ genTxIdState = sendM genChainAction >>= \case
     DoNothing -> pure mempty
     AddTx     -> do
       blockNumber <- length <$> gets (view txgsBlocks)
-      TxIdState.fromTx (TxIdState.BlockNumber blockNumber) <$> genTxIdStateTx
+      TxIdState.fromTx (BlockNumber blockNumber) <$> genTxIdStateTx
 
 execTxIdGenState :: forall m a. Monad m => Eff '[State TxIdGenState, m] a -> m TxIdGenState
 execTxIdGenState = runM . execState state

@@ -4,6 +4,7 @@
 {-# LANGUAGE FlexibleContexts      #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE LambdaCase            #-}
+{-# LANGUAGE MonoLocalBinds        #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE NamedFieldPuns        #-}
 {-# LANGUAGE OverloadedStrings     #-}
@@ -95,7 +96,7 @@ fromTx tx =
         }
 
 type UtxoIndex a = FingerTree (UtxoState a) (UtxoState a)
-instance Measured (UtxoState TxUtxoBalance) (UtxoState TxUtxoBalance) where
+instance Monoid a => Measured (UtxoState a) (UtxoState a) where
     measure = id
 
 utxoState :: Measured (UtxoState a) (UtxoState a)
@@ -206,10 +207,9 @@ viewTip :: Measured (UtxoState a) (UtxoState a)
 viewTip = tip . measure
 
 -- | Perform a rollback on the utxo index
-rollback :: Measured (UtxoState a) (UtxoState a)
-         => Tip
-         -> UtxoIndex a
-         -> Either RollbackFailed (RollbackResult a)
+rollback :: Tip
+         -> UtxoIndex TxUtxoBalance
+         -> Either RollbackFailed (RollbackResult TxUtxoBalance)
 rollback _             (viewTip -> TipAtGenesis) = Left RollbackNoTip
 rollback targetTip idx@(viewTip -> currentTip)
     -- The rollback happened sometime after the current tip.
