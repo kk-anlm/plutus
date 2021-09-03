@@ -8,7 +8,6 @@ module Template.State
 
 import Prelude
 import Control.Monad.Reader (class MonadAsk)
-import Dashboard.Types (InputSlot(..))
 import Data.Array (mapMaybe) as Array
 import Data.BigInteger (BigInteger)
 import Data.Lens (Lens', assign, set, use, view)
@@ -26,7 +25,7 @@ import Examples.PureScript.Escrow (contractTemplate, defaultSlotContent) as Escr
 import Examples.PureScript.EscrowWithCollateral (defaultSlotContent) as EscrowWithCollateral
 import Examples.PureScript.Swap (defaultSlotContent) as Swap
 import Examples.PureScript.ZeroCouponBond (defaultSlotContent) as ZeroCouponBond
-import Halogen (HalogenM, modify_, query, tell)
+import Halogen (HalogenM, Tell, modify_, query, tell)
 import Halogen.Extra (mapMaybeSubmodule)
 import Input.Text as TInput
 import InputField.Lenses (_value)
@@ -34,7 +33,7 @@ import InputField.State (dummyState, handleAction, mkInitialState) as InputField
 import InputField.State (formatBigIntegerValue, getBigIntegerValue, validate)
 import InputField.Types (Action(..), State) as InputField
 import InputField.Types (class InputFieldError)
-import MainFrame.Types (ChildSlots, InputSlot(..), Msg, contractTemplateInputSlot)
+import MainFrame.Types (ChildSlots, Msg, contractTemplateInputSlot)
 import Marlowe.Extended (Contract) as Extended
 import Marlowe.Extended (ContractType(..), resolveRelativeTimes, toCore)
 import Marlowe.Extended.Metadata (MetaData, NumberFormat(..), _extendedContract, _metaData, _valueParameterFormat, _valueParameterInfo)
@@ -64,14 +63,27 @@ initialState =
     , valueContentInputs: mempty
     }
 
+tellNicknameInputTo ::
+  forall m.
+  Tell TInput.Query ->
+  HalogenM State Action ChildSlots Msg m Unit
+tellNicknameInputTo =
+  void
+    <<< query TInput.label (contractTemplateInputSlot ContractNicknameInput)
+    <<< tell
+
 -- Some actions are handled in `Dashboard.State` because they involve
 -- modifications of that state. See Note [State] in MainFrame.State.
 handleAction ::
   forall m.
   MonadAff m =>
   MonadAsk Env m =>
-  Input -> Action -> HalogenM State Action ChildSlots Msg m Unit
-handleAction _ (SetContractSetupStage contractSetupStage) = assign _contractSetupStage contractSetupStage
+  Input ->
+  Action ->
+  HalogenM State Action ChildSlots Msg m Unit
+handleAction _ (SetContractSetupStage contractSetupStage) = do
+  assign _contractSetupStage contractSetupStage
+  when (contractSetupStage == Setup) $ tellNicknameInputTo TInput.Focus
 
 handleAction input@{ currentSlot } (SetTemplate contractTemplate) = do
   let
@@ -92,9 +104,7 @@ handleAction input@{ currentSlot } (SetTemplate contractTemplate) = do
     <<< set _roleWalletInputs roleWalletInputs
     <<< set _slotContentInputs slotContentInputs
     <<< set _valueContentInputs valueContentInputs
-  void
-    $ query TInput.label (contractTemplateInputSlot ContractNicknameInput)
-    $ tell TInput.Reset
+  tellNicknameInputTo TInput.Reset
   handleAction input UpdateRoleWalletValidators
   setInputValidators input _valueContentInputs ValueContentInputAction valueError
   setInputValidators input _slotContentInputs SlotContentInputAction slotError
