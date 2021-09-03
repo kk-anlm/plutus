@@ -2,7 +2,6 @@ module Template.Lenses
   ( _contractSetupStage
   , _contractTemplate
   , _contractNickname
-  , _contractNicknameError
   , _roleWalletInputs
   , _roleWalletInput
   , _slotContentInputs
@@ -12,12 +11,12 @@ module Template.Lenses
   ) where
 
 import Prelude
+import Data.Either (Either)
 import Data.Lens (Lens', Traversal')
 import Data.Lens.At (at)
 import Data.Lens.Prism.Maybe (_Just)
 import Data.Lens.Record (prop)
 import Data.Map (Map)
-import Data.Maybe (Maybe)
 import Data.Symbol (SProxy(..))
 import InputField.Types (State) as InputField
 import Marlowe.Extended.Metadata (ContractTemplate)
@@ -30,11 +29,8 @@ _contractSetupStage = prop (SProxy :: SProxy "contractSetupStage")
 _contractTemplate :: Lens' State ContractTemplate
 _contractTemplate = prop (SProxy :: SProxy "contractTemplate")
 
-_contractNickname :: Lens' State String
+_contractNickname :: Lens' State (Either ContractNicknameError String)
 _contractNickname = prop (SProxy :: SProxy "contractNickname")
-
-_contractNicknameError :: Lens' State (Maybe ContractNicknameError)
-_contractNicknameError = prop (SProxy :: SProxy "contractNicknameError")
 
 _roleWalletInputs :: Lens' State (Map TokenName (InputField.State RoleError))
 _roleWalletInputs = prop (SProxy :: SProxy "roleWalletInputs")

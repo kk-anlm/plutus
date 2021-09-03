@@ -1,9 +1,7 @@
 module WalletData.Lenses
   ( _walletLibrary
   , _cardSection
-  , _walletNicknameError
   , _walletId
-  , _walletIdError
   , _remoteWalletInfo
   , _walletNickname
   , _companionAppId
@@ -37,14 +35,8 @@ _cardSection = prop (SProxy :: SProxy "cardSection")
 _walletNickname :: forall r a. Lens' { walletNickname :: a | r } a
 _walletNickname = prop (SProxy :: SProxy "walletNickname")
 
-_walletNicknameError :: forall r a. Lens' { walletNicknameError :: a | r } a
-_walletNicknameError = prop (SProxy :: SProxy "walletNicknameError")
-
 _walletId :: forall r a. Lens' { walletId :: a | r } a
 _walletId = prop (SProxy :: SProxy "walletId")
-
-_walletIdError :: forall r a. Lens' { walletIdError :: a | r } a
-_walletIdError = prop (SProxy :: SProxy "walletIdError")
 
 _remoteWalletInfo :: Lens' State (WebData WalletInfo)
 _remoteWalletInfo = prop (SProxy :: SProxy "remoteWalletInfo")

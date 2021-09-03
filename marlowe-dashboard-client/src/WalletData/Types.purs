@@ -10,48 +10,31 @@ module WalletData.Types
   , WalletNicknameError(..)
   , WalletIdError(..)
   , Action(..)
-  , InputSlot(..)
-  , WalletFields
-  , WalletFieldsAction(..)
   ) where
 
 import Prelude
 import Analytics (class IsEvent, defaultEvent)
 import Clipboard (Action) as Clipboard
 import Data.BigInteger (BigInteger)
+import Data.Display (class Display)
+import Data.Either (Either)
 import Data.Generic.Rep (class Generic)
 import Data.Map (Map)
 import Data.Maybe (Maybe(..))
 import Data.Newtype (class Newtype)
 import Foreign.Class (class Encode, class Decode)
 import Foreign.Generic (defaultOptions, genericDecode, genericEncode)
-import InputField.Types (class InputFieldError)
 import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (Assets, MarloweData, MarloweParams, PubKey)
 import Types (WebData)
 
-type WalletFields r
-  = { walletNickname :: String
-    , walletNicknameError :: Maybe WalletNicknameError
-    , walletId :: String
-    , walletIdError :: Maybe WalletIdError
-    | r
-    }
-
 type State
-  = WalletFields
-      ( walletLibrary :: WalletLibrary
-      , cardSection :: CardSection
-      , remoteWalletInfo :: WebData WalletInfo
-      )
-
-data InputSlot
-  = WalletNicknameInput
-  | WalletIdInput
-
-derive instance eqInputSlot :: Eq InputSlot
-
-derive instance ordInputSlot :: Ord InputSlot
+  = { walletNickname :: Either WalletNicknameError String
+    , walletId :: Either WalletIdError PlutusAppId
+    , walletLibrary :: WalletLibrary
+    , cardSection :: CardSection
+    , remoteWalletInfo :: WebData WalletInfo
+    }
 
 type WalletLibrary
   = Map WalletNickname WalletDetails
@@ -137,10 +120,10 @@ data WalletNicknameError
 
 derive instance eqWalletNicknameError :: Eq WalletNicknameError
 
-instance inputFieldErrorWalletNicknameError :: InputFieldError WalletNicknameError where
-  inputErrorToString EmptyWalletNickname = "Nickname cannot be blank"
-  inputErrorToString DuplicateWalletNickname = "Nickname is already in use in your contacts"
-  inputErrorToString BadWalletNickname = "Nicknames can only contain letters and numbers"
+instance displayWalletNicknameError :: Display WalletNicknameError where
+  display EmptyWalletNickname = "Nickname cannot be blank"
+  display DuplicateWalletNickname = "Nickname is already in use in your contacts"
+  display BadWalletNickname = "Nicknames can only contain letters and numbers"
 
 data WalletIdError
   = EmptyWalletId
@@ -151,23 +134,20 @@ data WalletIdError
 
 derive instance eqWalletIdError :: Eq WalletIdError
 
-instance inputeFieldErrorWalletIdError :: InputFieldError WalletIdError where
-  inputErrorToString EmptyWalletId = "Wallet ID cannot be blank"
-  inputErrorToString DuplicateWalletId = "Wallet ID is already in your contacts"
-  inputErrorToString InvalidWalletId = "Wallet ID is not valid"
-  inputErrorToString UnconfirmedWalletId = "Looking up wallet..."
-  inputErrorToString NonexistentWalletId = "Wallet not found"
-
-data WalletFieldsAction
-  = WalletNicknameChanged String
-  | WalletIdChanged String
+instance displayWalletIdError :: Display WalletIdError where
+  display EmptyWalletId = "Wallet ID cannot be blank"
+  display DuplicateWalletId = "Wallet ID is already in your contacts"
+  display InvalidWalletId = "Wallet ID is not valid"
+  display UnconfirmedWalletId = "Looking up wallet..."
+  display NonexistentWalletId = "Wallet not found"
 
 data Action
   = CloseWalletDataCard
   | SetCardSection CardSection
-  | SaveWallet (Maybe String)
+  | SaveWallet (Maybe String) WalletDetails
   | CancelNewContactForRole
-  | WalletFieldsAction WalletFieldsAction
+  | WalletNicknameChanged (Either WalletNicknameError String)
+  | WalletIdChanged (Either WalletIdError PlutusAppId)
   | SetRemoteWalletInfo (WebData WalletInfo)
   | UseWallet WalletNickname PlutusAppId
   | ClipboardAction Clipboard.Action
@@ -175,9 +155,10 @@ data Action
 instance actionIsEvent :: IsEvent Action where
   toEvent CloseWalletDataCard = Just $ defaultEvent "CloseWalletDataCard"
   toEvent (SetCardSection _) = Just $ defaultEvent "SetCardSection"
-  toEvent (SaveWallet _) = Just $ defaultEvent "SaveWallet"
+  toEvent (SaveWallet _ _) = Just $ defaultEvent "SaveWallet"
   toEvent CancelNewContactForRole = Nothing
-  toEvent (WalletFieldsAction _) = Nothing
+  toEvent (WalletNicknameChanged _) = Nothing
+  toEvent (WalletIdChanged _) = Nothing
   toEvent (SetRemoteWalletInfo _) = Nothing
   toEvent (UseWallet _ _) = Just $ defaultEvent "UseWallet"
   toEvent (ClipboardAction _) = Just $ defaultEvent "ClipboardAction"

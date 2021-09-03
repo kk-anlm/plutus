@@ -28,18 +28,18 @@ import Input.Text as TInput
 import InputField.State (handleAction, mkInitialState) as InputField
 import InputField.Types (Action(..), State) as InputField
 import MainFrame.Types (Action(..)) as MainFrame
-import MainFrame.Types (ChildSlots, InputSlot(..), Msg)
+import MainFrame.Types (ChildSlots, Msg, welcomeWalletDataIdSlot, welcomeWalletDataNicknameSlot)
 import Network.RemoteData (RemoteData(..), fromEither)
 import Toast.Types (ajaxErrorToast, errorToast, successToast)
 import Types (WebData)
 import WalletData.Lenses (_companionAppId, _walletNickname)
-import WalletData.State (parsePlutusAppId, walletNicknameError)
-import WalletData.Types (WalletDetails, WalletFieldsAction(..), WalletLibrary)
+import WalletData.State (parsePlutusAppId, parseWalletNickname)
+import WalletData.Types (WalletDetails, WalletLibrary)
 import Web.HTML (window)
 import Web.HTML.Location (reload)
 import Web.HTML.Window (location)
-import Welcome.Lenses (_card, _cardOpen, _enteringDashboardState, _remoteWalletDetails, _walletId, _walletLibrary, _walletNicknameError, _walletNicknameOrIdInput)
-import Welcome.Types (Action(..), Card(..), InputSlot(..), State, WalletNicknameOrIdError(..))
+import Welcome.Lenses (_card, _cardOpen, _enteringDashboardState, _remoteWalletDetails, _walletId, _walletLibrary, _walletNicknameOrIdInput)
+import Welcome.Types (Action(..), Card(..), State, WalletNicknameOrIdError(..))
 
 -- see note [dummyState] in MainFrame.State
 dummyState :: State
@@ -51,10 +51,8 @@ mkInitialState walletLibrary =
   , card: Nothing
   , cardOpen: false
   , walletNicknameOrIdInput: InputField.mkInitialState Nothing
-  , walletNickname: ""
-  , walletNicknameError: Nothing
+  , walletNickname: parseWalletNickname walletLibrary ""
   , walletId: ""
-  , walletIdError: Nothing
   , remoteWalletDetails: NotAsked
   , enteringDashboardState: false
   }
@@ -83,10 +81,10 @@ handleAction CloseCard = do
     <<< set _cardOpen false
   handleAction $ WalletNicknameOrIdInputAction $ InputField.Reset
   void
-    $ query TInput.label (WelcomeInput WalletIdInput)
+    $ query welcomeWalletDataIdSlot unit
     $ tell TInput.Reset
   void
-    $ query TInput.label (WelcomeInput WalletNicknameInput)
+    $ query welcomeWalletDataNicknameSlot unit
     $ tell TInput.Reset
 
 handleAction GenerateWallet = do
@@ -98,9 +96,9 @@ handleAction GenerateWallet = do
     Left ajaxError -> addToast $ ajaxErrorToast "Failed to generate wallet." ajaxError
     Right walletDetails -> do
       void
-        $ query TInput.label (WelcomeInput WalletNicknameInput)
+        $ query welcomeWalletDataNicknameSlot unit
         $ tell TInput.Reset
-      handleAction $ WalletFieldsAction $ WalletIdChanged $ UUID.toString (unwrap (view _companionAppId walletDetails))
+      handleAction $ WalletIdChanged $ UUID.toString (unwrap (view _companionAppId walletDetails))
       handleAction $ OpenCard UseNewWalletCard
 
 handleAction (WalletNicknameOrIdInputAction inputFieldAction) = do
@@ -123,16 +121,15 @@ handleAction (WalletNicknameOrIdInputAction inputFieldAction) = do
             case findMin $ filter (\details -> UUID.toString (unwrap (view _companionAppId details)) == walletNicknameOrId) walletLibrary of
               Just { key, value } -> do
                 -- if so, open the UseWalletCard
-                handleAction $ WalletFieldsAction $ WalletNicknameChanged key
-                handleAction $ WalletFieldsAction $ WalletIdChanged walletNicknameOrId
-                handleAction $ OpenCard UseWalletCard
+                handleAction $ WalletNicknameChanged $ Right key
+                handleAction $ WalletIdChanged walletNicknameOrId
+                handleAction $ OpenCard $ UseWalletCard key
               Nothing -> do
                 -- otherwise open the UseNewWalletCard
                 void
-                  $ query TInput.label (WelcomeInput WalletNicknameInput)
+                  $ query welcomeWalletDataNicknameSlot unit
                   $ tell TInput.Reset
                 handleAction
-                  $ WalletFieldsAction
                   $ WalletIdChanged
                   $ UUID.toString (unwrap (view _companionAppId walletDetails))
                 handleAction $ OpenCard UseNewWalletCard
@@ -151,16 +148,15 @@ handleAction (OpenUseWalletCardWithDetails walletDetails) = do
     Left ajaxError -> handleAction $ OpenCard LocalWalletMissingCard
     Right _ -> do
       handleAction $ WalletNicknameOrIdInputAction $ InputField.Reset
-      handleAction $ WalletFieldsAction $ WalletNicknameChanged $ view _walletNickname walletDetails
-      handleAction $ WalletFieldsAction $ WalletIdChanged $ UUID.toString (unwrap (view _companionAppId walletDetails))
-      handleAction $ OpenCard UseWalletCard
+      handleAction $ WalletNicknameChanged $ Right $ view _walletNickname walletDetails
+      handleAction $ WalletIdChanged $ UUID.toString (unwrap (view _companionAppId walletDetails))
+      handleAction $ OpenCard $ UseWalletCard walletDetails.walletNickname
 
-handleAction (WalletFieldsAction (WalletNicknameChanged value)) = do
+handleAction (WalletNicknameChanged value) = do
   walletLibrary <- use _walletLibrary
   assign _walletNickname value
-  assign _walletNicknameError $ walletNicknameError walletLibrary value
 
-handleAction (WalletFieldsAction (WalletIdChanged value)) = do
+handleAction (WalletIdChanged value) = do
   walletLibrary <- use _walletLibrary
   assign _walletId value
 

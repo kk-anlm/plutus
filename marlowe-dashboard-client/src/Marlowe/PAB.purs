@@ -6,7 +6,9 @@ module Marlowe.PAB
 
 import Prelude
 import Data.BigInteger (BigInteger, fromInt)
+import Data.Display (class Display)
 import Data.Generic.Rep (class Generic)
+import Data.Generic.Rep.Show (genericShow)
 import Data.Newtype (class Newtype)
 import Data.UUID (UUID)
 import Foreign.Class (class Encode, class Decode)
@@ -46,3 +48,6 @@ instance encodePlutusAppId :: Encode PlutusAppId where
 
 instance decodePlutusAppId :: Decode PlutusAppId where
   decode value = genericDecode defaultOptions value
+
+instance displayPlutusAppId :: Display PlutusAppId where
+  display = genericShow

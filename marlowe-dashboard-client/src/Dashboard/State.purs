@@ -42,14 +42,14 @@ import MainFrame.Types (ChildSlots, Msg)
 import Marlowe.Client (ContractHistory, _chHistory, _chParams)
 import Marlowe.Deinstantiate (findTemplate)
 import Marlowe.Execution.State (getAllPayments)
-import Marlowe.Extended.Metadata (_metaData)
+import Marlowe.Extended.Metadata (_extendedContract, _metaData)
 import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (MarloweData, MarloweParams, Party(..), Payee(..), Payment(..), Slot(..), _marloweContract)
 import Template.Lenses (_contractNickname, _contractSetupStage, _contractTemplate, _roleWalletInputs)
 import Template.State (dummyState, handleAction, initialState) as Template
 import Template.State (instantiateExtendedContract)
 import Template.Types (Action(..), State) as Template
-import Template.Types (ContractSetupStage(..))
+import Template.Types (ContractSetupStage(..), TemplateFormResult(..))
 import Toast.Types (ajaxErrorToast, decodedAjaxErrorToast, errorToast, successToast)
 import WalletData.Lenses (_cardSection, _pubKeyHash, _walletInfo, _walletLibrary, _walletNickname)
 import WalletData.State (defaultWalletDetails)
@@ -296,9 +296,9 @@ handleAction input@{ currentSlot } (TemplateAction templateAction) = case templa
     modify_
       $ set _card (Just $ WalletDataCard)
       <<< set (_walletDataState <<< _cardSection) (NewWallet $ Just tokenName)
-  Template.StartContract -> do
-    templateState <- use _templateState
-    case instantiateExtendedContract currentSlot templateState of
+  Template.StartContract (TemplateFormResult contractNickname roleWallets content) -> do
+    extendedContract <- use (_templateState <<< _contractTemplate <<< _extendedContract)
+    case instantiateExtendedContract currentSlot extendedContract content of
       Nothing -> addToast $ errorToast "Failed to instantiate contract." $ Just "Something went wrong when trying to instantiate a contract from this template using the parameters you specified."
       Just contract -> do
         -- the user enters wallet nicknames for roles; here we convert these into pubKeyHashes
@@ -306,8 +306,6 @@ handleAction input@{ currentSlot } (TemplateAction templateAction) = case templa
         walletLibrary <- use (_walletDataState <<< _walletLibrary)
         roleWalletInputs <- use (_templateState <<< _roleWalletInputs)
         let
-          roleWallets = map (view _value) roleWalletInputs
-
           roles = mapMaybe (\walletNickname -> view (_walletInfo <<< _pubKeyHash) <$> lookup walletNickname walletLibrary) roleWallets
         ajaxCreateContract <- createContract walletDetails roles contract
         case ajaxCreateContract of
@@ -320,7 +318,6 @@ handleAction input@{ currentSlot } (TemplateAction templateAction) = case templa
             case ajaxPendingFollowerApp of
               Left ajaxError -> addToast $ ajaxErrorToast "Failed to initialise contract." ajaxError
               Right followerAppId -> do
-                contractNickname <- use (_templateState <<< _contractNickname)
                 insertIntoContractNicknames followerAppId contractNickname
                 metaData <- use (_templateState <<< _contractTemplate <<< _metaData)
                 modifying _contracts $ insert followerAppId $ Contract.mkPlaceholderState contractNickname metaData contract
@@ -328,7 +325,7 @@ handleAction input@{ currentSlot } (TemplateAction templateAction) = case templa
                 addToast $ successToast "The request to initialise this contract has been submitted."
                 { dataProvider } <- ask
                 when (dataProvider == LocalStorage) (handleAction input UpdateFromStorage)
-                assign _templateState Template.initialState
+                assign _templateState $ Template.initialState
   _ -> do
     walletLibrary <- use (_walletDataState <<< _walletLibrary)
     toTemplate $ Template.handleAction { currentSlot, walletLibrary } templateAction

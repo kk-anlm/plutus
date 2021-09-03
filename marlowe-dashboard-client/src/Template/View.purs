@@ -2,7 +2,6 @@ module Template.View (contractTemplateCard) where
 
 import Prelude hiding (div)
 import Css as Css
-import Dashboard.Types (InputSlot(..))
 import Data.Lens (view)
 import Data.List (toUnfoldable) as List
 import Data.Map (Map)
@@ -21,9 +20,8 @@ import Humanize (contractIcon, humanizeValue)
 import Input.Text as TInput
 import InputField.Lenses (_value)
 import InputField.Types (State) as InputField
-import InputField.Types (inputErrorToString)
 import InputField.View (renderInput)
-import MainFrame.Types (ChildSlots, InputSlot(..), contractTemplateInputSlot)
+import MainFrame.Types (ChildSlots, dashboardTemplateNicknameSlot)
 import Marlowe.Extended.Metadata (ContractTemplate, MetaData, NumberFormat(..), _contractName, _metaData, _slotParameterDescriptions, _valueParameterDescription, _valueParameterFormat, _valueParameterInfo)
 import Marlowe.Market (contractTemplates)
 import Marlowe.PAB (contractCreationFee)
@@ -33,8 +31,8 @@ import Material.Icons (Icon(..)) as Icon
 import Material.Icons (Icon, icon, icon_)
 import Popper (Placement(..))
 import Template.Lenses (_contractSetupStage, _contractTemplate, _roleWalletInputs, _slotContentInputs, _valueContentInputs)
-import Template.State (templateSetupIsValid)
-import Template.Types (Action(..), ContractSetupStage(..), InputSlot(..), RoleError, SlotError, State, ValueError)
+import Template.State (parseContractNickname, parseTemplateForm)
+import Template.Types (Action(..), ContractSetupStage(..), RoleError, SlotError, State, TemplateFormResult, ValueError)
 import Text.Markdown.TrimmedInline (markdownToHTML)
 import Tooltip.State (tooltip)
 import Tooltip.Types (ReferenceId(..))
@@ -59,7 +57,7 @@ contractTemplateCard walletLibrary assets state =
           Start -> contractSelection
           Overview -> contractOverview contractTemplate
           Setup -> contractSetup walletLibrary state
-          Review -> contractReview assets state
+          Review result -> contractReview assets state result
       ]
 
 ------------------------------------------------------------
@@ -80,7 +78,7 @@ contractTemplateBreadcrumb contractSetupStage contractTemplate =
       , arrow
       , activeItem "Setup"
       ]
-    Review ->
+    Review _ ->
       [ previousItem "Templates" Start
       , arrow
       , previousItem contractTemplate.metaData.contractName Overview
@@ -179,12 +177,13 @@ contractSetup walletLibrary state =
     valueContentInputs = view _valueContentInputs state
 
     contractNicknameInputProps =
-      TInput.defaultProps
-        { id_ = Just "contractNickname"
-        , placeholder = Just "E.g. My Marlowe contract"
-        , value = state.contractNickname
-        , error = inputErrorToString <$> state.contractNicknameError
-        }
+      let
+        props = TInput.defaultProps state.contractNickname parseContractNickname
+      in
+        props
+          { id_ = Just "contractNickname"
+          , placeholder = Just "E.g. My Marlowe contract"
+          }
   in
     div
       [ classNames [ "h-full", "grid", "grid-rows-1fr-auto" ] ]
@@ -199,9 +198,10 @@ contractSetup walletLibrary state =
                   [ classNames Css.nestedLabel ]
                   [ text $ contractName <> " title" ]
               , TInput.render
-                  (contractTemplateInputSlot ContractNicknameInput)
+                  dashboardTemplateNicknameSlot
+                  unit
                   contractNicknameInputProps
-                  $ TInput.defaultHandleMessage ContractNicknameInputChanged
+                  $ TInput.defaultHandleMessage ContractNicknameChanged
               ]
           , roleInputs walletLibrary metaData roleWalletInputs
           , parameterInputs metaData slotContentInputs valueContentInputs
@@ -214,16 +214,20 @@ contractSetup walletLibrary state =
               ]
               [ text "Back" ]
           , button
-              [ classNames $ Css.primaryButton <> [ "flex-1", "text-left" ] <> Css.withIcon Icon.ArrowRight
-              , onClick_ $ SetContractSetupStage Review
-              , enabled $ templateSetupIsValid state
-              ]
+              ( [ classNames $ Css.primaryButton <> [ "flex-1", "text-left" ] <> Css.withIcon Icon.ArrowRight ]
+                  <> case parseTemplateForm walletLibrary state of
+                      Just result ->
+                        [ onClick_ $ SetContractSetupStage $ Review result
+                        , enabled true
+                        ]
+                      _ -> [ enabled false ]
+              )
               [ text "Review" ]
           ]
       ]
 
-contractReview :: forall m. MonadAff m => Assets -> State -> ComponentHTML Action ChildSlots m
-contractReview assets state =
+contractReview :: forall m. MonadAff m => Assets -> State -> TemplateFormResult -> ComponentHTML Action ChildSlots m
+contractReview assets state result =
   let
     hasSufficientFunds = getAda assets >= contractCreationFee
 
@@ -271,7 +275,8 @@ contractReview assets state =
                       [ text "Back" ]
                   , button
                       [ classNames $ Css.primaryButton <> [ "flex-1" ]
-                      , onClick_ StartContract
+                      , onClick_ $ StartContract result
+                      , enabled hasSufficientFunds
                       ]
                       [ text "Pay and start" ]
                   ]

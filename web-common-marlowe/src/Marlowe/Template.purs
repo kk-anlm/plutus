@@ -45,6 +45,8 @@ newtype TemplateContent
   , valueContent :: Map String BigInteger
   }
 
+derive instance eqTemplateContent :: Eq TemplateContent
+
 _slotContent :: Lens' TemplateContent (Map String BigInteger)
 _slotContent = _Newtype <<< prop (SProxy :: SProxy "slotContent")
 

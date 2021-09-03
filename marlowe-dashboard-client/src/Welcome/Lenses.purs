@@ -16,13 +16,7 @@ import InputField.Types (State) as InputField
 import Types (WebData)
 import WalletData.Types (WalletDetails, WalletLibrary)
 import Welcome.Types (Card, State, WalletNicknameOrIdError)
-import WalletData.Lenses
-  ( _walletNickname
-  , _walletNicknameError
-  , _walletId
-  , _walletIdError
-  )
-  as WDL
+import WalletData.Lenses (_walletNickname, _walletId) as WDL
 
 _card :: Lens' State (Maybe Card)
 _card = prop (SProxy :: SProxy "card")

@@ -8,7 +8,7 @@ import Clipboard (Action(..)) as Clipboard
 import Css as Css
 import Data.Lens ((^.))
 import Data.Map (isEmpty, toUnfoldable)
-import Data.Maybe (Maybe(..), isJust)
+import Data.Maybe (Maybe(..))
 import Data.Newtype (unwrap)
 import Data.Tuple.Nested ((/\))
 import Data.UUID (toString) as UUID
@@ -19,12 +19,12 @@ import Halogen.HTML (HTML, a, button, div, div_, h2, h3, h4, label, li, p, span,
 import Halogen.HTML.Events.Extra (onClick_)
 import Halogen.HTML.Properties (disabled, for)
 import Input.Text as TInput
-import InputField.Types (inputErrorToString)
-import MainFrame.Types (ChildSlots, walletDataInputSlot)
+import MainFrame.Types (ChildSlots, dashboardWalletDataIdSlot, dashboardWalletDataNicknameSlot)
 import Material.Icons (Icon(..)) as Icon
 import Material.Icons (icon_)
 import WalletData.Lenses (_cardSection, _companionAppId, _walletLibrary, _walletNickname)
-import WalletData.Types (Action(..), CardSection(..), InputSlot(..), State, WalletDetails, WalletFieldsAction(..), WalletIdError, WalletLibrary, WalletNicknameError)
+import WalletData.State (parseWalletDetails, parseWalletId, parseWalletNickname)
+import WalletData.Types (Action(..), CardSection(..), State, WalletDetails, WalletLibrary)
 
 walletDataCard ::
   forall m.
@@ -47,13 +47,7 @@ walletDataCard currentWallet state =
       , case cardSection of
           Home -> walletLibraryCard walletLibrary
           ViewWallet walletDetails -> walletDetailsCard currentWallet walletDetails
-          NewWallet mTokenName ->
-            newWalletCard
-              state.walletNickname
-              state.walletNicknameError
-              state.walletId
-              state.walletIdError
-              mTokenName
+          NewWallet mTokenName -> newWalletCard walletLibrary mTokenName state
       ]
 
 walletDataBreadcrumb :: forall p. CardSection -> HTML p Action
@@ -171,42 +165,44 @@ walletDetailsCard currentWallet walletDetails =
 newWalletCard ::
   forall m.
   MonadAff m =>
-  String ->
-  Maybe WalletNicknameError ->
-  String ->
-  Maybe WalletIdError ->
+  WalletLibrary ->
   Maybe String ->
+  State ->
   ComponentHTML Action ChildSlots m
-newWalletCard walletNickname walletNicknameError walletId walletIdError mTokenName =
+newWalletCard walletLibrary mTokenName state@{ remoteWalletInfo, walletNickname, walletId } =
   let
     walletNicknameInputId = "newWalletNickname"
 
     walletNicknameProps =
-      TInput.defaultProps
-        { id_ = Just walletNicknameInputId
-        , placeholder = Just "Nickname"
-        , value = walletNickname
-        , error = inputErrorToString <$> walletNicknameError
-        }
+      let
+        props = TInput.defaultProps walletNickname (parseWalletNickname walletLibrary)
+      in
+        props
+          { id_ = Just walletNicknameInputId
+          , placeholder = Just "Nickname"
+          }
 
     walletIdInputId = "newWalletId"
 
     walletIdProps =
-      TInput.defaultProps
-        { id_ = Just walletIdInputId
-        , placeholder = Just "Wallet ID"
-        , value = walletId
-        , error = inputErrorToString <$> walletIdError
-        }
+      let
+        props = TInput.defaultProps walletId (parseWalletId remoteWalletInfo walletLibrary)
+      in
+        props
+          { id_ = Just walletIdInputId
+          , placeholder = Just "Wallet ID"
+          }
 
-    renderInput label_ id_ slot props action =
+    renderInput ::
+      String ->
+      String ->
+      ComponentHTML Action ChildSlots m ->
+      ComponentHTML Action ChildSlots m
+    renderInput label_ id_ input =
       div
         [ classNames $ Css.hasNestedLabel <> [ "mb-4" ] ]
         [ label [ classNames Css.nestedLabel, for id_ ] [ text label_ ]
-        , TInput.render
-            (walletDataInputSlot slot)
-            props
-            $ TInput.defaultHandleMessage action
+        , input
         ]
   in
     div
@@ -215,14 +211,13 @@ newWalletCard walletNickname walletNicknameError walletId walletIdError mTokenNa
           [ renderInput
               "Wallet nickname"
               walletNicknameInputId
-              WalletNicknameInput
-              walletNicknameProps
-              (WalletFieldsAction <<< WalletNicknameChanged)
-          , renderInput "Demo wallet ID"
+              $ TInput.render dashboardWalletDataNicknameSlot unit walletNicknameProps
+              $ TInput.defaultHandleMessage WalletNicknameChanged
+          , renderInput
+              "Demo wallet ID"
               walletIdInputId
-              WalletIdInput
-              walletIdProps
-              (WalletFieldsAction <<< WalletIdChanged)
+              $ TInput.render dashboardWalletDataIdSlot unit walletIdProps
+              $ TInput.defaultHandleMessage WalletIdChanged
           ]
       , div
           [ classNames [ "flex", "gap-4" ] ]
@@ -234,10 +229,14 @@ newWalletCard walletNickname walletNicknameError walletId walletIdError mTokenNa
               ]
               [ text "Back" ]
           , button
-              [ classNames $ Css.primaryButton <> [ "flex-1" ]
-              , disabled $ isJust walletNicknameError || isJust walletIdError
-              , onClick_ $ SaveWallet mTokenName
-              ]
+              ( [ classNames $ Css.primaryButton <> [ "flex-1" ] ]
+                  <> case parseWalletDetails state of
+                      Just walletDetails ->
+                        [ disabled false
+                        , onClick_ $ SaveWallet mTokenName walletDetails
+                        ]
+                      _ -> [ disabled true ]
+              )
               [ text "Save" ]
           ]
       ]

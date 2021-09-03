@@ -7,11 +7,12 @@ import Prelude hiding (div)
 import Clipboard (Action(..)) as Clipboard
 import Control.MonadPlus (guard)
 import Css as Css
+import Data.Either (Either(..), either)
 import Data.Lens (view, (^.))
 import Data.List (foldMap)
 import Data.List (toUnfoldable) as List
 import Data.Map (values)
-import Data.Maybe (Maybe(..), isJust)
+import Data.Maybe (Maybe(..))
 import Effect.Aff.Class (class MonadAff)
 import Halogen (ComponentHTML)
 import Halogen.Css (classNames)
@@ -20,18 +21,18 @@ import Halogen.HTML.Events.Extra (onClick_)
 import Halogen.HTML.Properties (disabled, for, href, src, title)
 import Images (marloweRunLogo)
 import Input.Text as TInput
-import InputField.Types (inputErrorToString)
 import InputField.View (renderInput)
-import MainFrame.Types (ChildSlots, InputSlot(..))
+import MainFrame.Types (ChildSlots, welcomeWalletDataIdSlot, welcomeWalletDataNicknameSlot)
 import Material.Icons (Icon(..)) as Icon
 import Material.Icons (icon, icon_)
-import Network.RemoteData (isSuccess)
+import Network.RemoteData (RemoteData(..), isSuccess)
 import Prim.TypeError (class Warn, Text)
 import WalletData.Lenses (_walletNickname)
-import WalletData.Types (WalletFieldsAction(..), WalletIdError, WalletNicknameError)
+import WalletData.State (parseWalletNickname)
+import WalletData.Types (WalletLibrary, WalletNickname, WalletNicknameError)
 import WalletData.View (walletIdTip)
 import Welcome.Lenses (_card, _cardOpen, _enteringDashboardState, _remoteWalletDetails, _walletLibrary, _walletNicknameOrIdInput)
-import Welcome.Types (Action(..), Card(..), InputSlot(..), State)
+import Welcome.Types (Action(..), Card(..), State)
 
 welcomeScreen :: forall m. MonadAff m => State -> ComponentHTML Action ChildSlots m
 welcomeScreen state =
@@ -71,7 +72,7 @@ welcomeCard state =
               GetStartedHelpCard -> getStartedHelpCard
               GenerateWalletHelpCard -> generateWalletHelpCard
               UseNewWalletCard -> useNewWalletCard state
-              UseWalletCard -> useWalletCard state
+              UseWalletCard walletNickname -> useWalletCard walletNickname state
               LocalWalletMissingCard -> localWalletMissingCard
       ]
 
@@ -254,14 +255,14 @@ useNewWalletCard state =
                   ]
                   [ text "Wallet nickname" ]
               , TInput.render
-                  (WelcomeInput WalletNicknameInput)
+                  welcomeWalletDataNicknameSlot
+                  unit
                   ( walletNicknameProps
                       false
+                      state.walletLibrary
                       state.walletNickname
-                      state.walletNicknameError
                   )
-                  $ TInput.defaultHandleMessage
-                      (WalletFieldsAction <<< WalletNicknameChanged)
+                  $ TInput.defaultHandleMessage WalletNicknameChanged
               ]
         , div
             [ classNames [ "relative", "mb-4" ] ]
@@ -273,10 +274,10 @@ useNewWalletCard state =
                     ]
                     [ text "Demo wallet ID" ]
                 , TInput.render
-                    (WelcomeInput WalletIdInput)
-                    (walletIdProps state.walletId state.walletIdError)
-                    $ TInput.defaultHandleMessage
-                        (WalletFieldsAction <<< WalletIdChanged)
+                    welcomeWalletDataIdSlot
+                    unit
+                    (walletIdProps state.walletId)
+                    $ TInput.defaultHandleMessage (either absurd WalletIdChanged)
                 ]
             , walletIdTip
             , a
@@ -293,17 +294,21 @@ useNewWalletCard state =
                 ]
                 [ text "Cancel" ]
             , button
-                [ classNames $ Css.primaryButton <> [ "flex-1" ]
-                , disabled $ isJust state.walletNicknameError || enteringDashboardState || not isSuccess remoteWalletDetails
-                , onClick_ $ UseWallet state.walletNickname
-                ]
+                ( [ classNames $ Css.primaryButton <> [ "flex-1" ] ]
+                    <> case state.walletNickname, enteringDashboardState, remoteWalletDetails of
+                        Right walletNickname, false, Success _ ->
+                          [ disabled false
+                          , onClick_ $ UseWallet walletNickname
+                          ]
+                        _, _, _ -> [ disabled true ]
+                )
                 [ text if enteringDashboardState then "Loading..." else "Use" ]
             ]
         ]
     ]
 
-useWalletCard :: forall m. MonadAff m => State -> Array (ComponentHTML Action ChildSlots m)
-useWalletCard state =
+useWalletCard :: forall m. MonadAff m => WalletNickname -> State -> Array (ComponentHTML Action ChildSlots m)
+useWalletCard walletNickname state =
   let
     enteringDashboardState = state ^. _enteringDashboardState
 
@@ -317,7 +322,7 @@ useWalletCard state =
     , div [ classNames [ "p-5", "pb-6", "lg:pb-8" ] ]
         [ h2
             [ classNames [ "font-bold", "my-4", "truncate", "w-11/12" ] ]
-            [ text $ "Demo wallet " <> state.walletNickname ]
+            [ text $ "Demo wallet " <> walletNickname ]
         , div
             [ classNames $ Css.hasNestedLabel <> [ "mb-4" ] ]
             $ [ label
@@ -326,14 +331,15 @@ useWalletCard state =
                   ]
                   [ text "Wallet nickname" ]
               , TInput.render
-                  (WelcomeInput WalletNicknameInput)
+                  welcomeWalletDataNicknameSlot
+                  unit
                   ( walletNicknameProps
                       true
+                      state.walletLibrary
                       state.walletNickname
-                      state.walletNicknameError
                   )
                   $ TInput.defaultHandleMessage
-                      (WalletFieldsAction <<< WalletNicknameChanged)
+                      WalletNicknameChanged
               ]
         , div
             [ classNames [ "relative", "mb-4" ] ]
@@ -345,10 +351,10 @@ useWalletCard state =
                     ]
                     [ text "Demo wallet ID" ]
                 , TInput.render
-                    (WelcomeInput WalletIdInput)
-                    (walletIdProps state.walletId state.walletIdError)
-                    $ TInput.defaultHandleMessage
-                        (WalletFieldsAction <<< WalletIdChanged)
+                    welcomeWalletDataIdSlot
+                    unit
+                    (walletIdProps state.walletId)
+                    $ TInput.defaultHandleMessage (either absurd WalletIdChanged)
                 ]
             , walletIdTip
             , a
@@ -366,7 +372,7 @@ useWalletCard state =
                 [ text "Cancel" ]
             , button
                 [ classNames $ Css.primaryButton <> [ "flex-1" ]
-                , onClick_ $ UseWallet state.walletNickname
+                , onClick_ $ UseWallet walletNickname
                 , disabled $ enteringDashboardState || not isSuccess remoteWalletDetails
                 ]
                 [ text if enteringDashboardState then "Loading..." else "Use" ]
@@ -379,32 +385,31 @@ walletNicknameInputId = "walletNickname"
 
 walletNicknameProps ::
   Boolean ->
-  String ->
-  Maybe WalletNicknameError ->
-  TInput.Props
-walletNicknameProps readOnly value error =
-  TInput.defaultProps
-    { id_ = Just walletNicknameInputId
-    , placeholder = guard readOnly $> "Give your wallet a nickname"
-    , value = value
-    , error = inputErrorToString <$> error
-    }
+  WalletLibrary ->
+  Either WalletNicknameError WalletNickname ->
+  TInput.Props WalletNicknameError WalletNickname
+walletNicknameProps readOnly walletLibrary value =
+  let
+    props = TInput.defaultProps value (parseWalletNickname walletLibrary)
+  in
+    props
+      { id_ = Just walletNicknameInputId
+      , placeholder = guard readOnly $> "Give your wallet a nickname"
+      }
 
 walletIdInputId :: String
 walletIdInputId = "walletId"
 
-walletIdProps ::
-  String ->
-  Maybe WalletIdError ->
-  TInput.Props
-walletIdProps value error =
-  TInput.defaultProps
-    { additionalCss = [ "font-mono", "text-xs", "pt-5" ]
-    , id_ = Just walletIdInputId
-    , placeholder = Just "Demo wallet ID"
-    , value = value
-    , error = inputErrorToString <$> error
-    }
+walletIdProps :: String -> TInput.Props Void String
+walletIdProps value =
+  let
+    props = TInput.defaultProps (Right value) $ const $ Right value
+  in
+    props
+      { additionalCss = [ "font-mono", "text-xs", "pt-5" ]
+      , id_ = Just walletIdInputId
+      , placeholder = Just "Demo wallet ID"
+      }
 
 localWalletMissingCard :: forall m. MonadAff m => Array (ComponentHTML Action ChildSlots m)
 localWalletMissingCard =

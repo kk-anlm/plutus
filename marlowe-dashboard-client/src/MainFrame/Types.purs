@@ -5,19 +5,22 @@ module MainFrame.Types
   , Query(..)
   , Msg(..)
   , Action(..)
-  , InputSlot(..)
-  , walletDataInputSlot
-  , contractTemplateInputSlot
+  , dashboardTemplateNicknameSlot
+  , dashboardWalletDataNicknameSlot
+  , dashboardWalletDataIdSlot
+  , welcomeWalletDataNicknameSlot
+  , welcomeWalletDataIdSlot
   ) where
 
 import Prelude
 import Analytics (class IsEvent, defaultEvent, toEvent)
 import Contract.Types (State) as Contract
-import Dashboard.Types (Action, State, InputSlot(..)) as Dashboard
+import Dashboard.Types (Action, State) as Dashboard
 import Data.Either (Either)
 import Data.Generic.Rep (class Generic)
 import Data.Map (Map)
 import Data.Maybe (Maybe(..))
+import Data.Symbol (SProxy(..))
 import Data.Time.Duration (Minutes)
 import Halogen as H
 import Halogen.Extra (LifecycleEvent)
@@ -26,15 +29,14 @@ import LoadingSubmitButton.Types as LoadingSubmitButton
 import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (Slot)
 import Plutus.PAB.Webserver.Types (CombinedWSStreamToClient)
-import Template.Types (InputSlot) as Template
+import Template.Types (ContractNicknameError)
 import Toast.Types (Action, State) as Toast
 import Tooltip.Types (ReferenceId)
 import Types (CombinedWSStreamToServer)
-import WalletData.Types (InputSlot) as WalletData
-import WalletData.Types (WalletDetails, WalletLibrary)
+import WalletData.Types (WalletDetails, WalletIdError, WalletLibrary, WalletNicknameError)
 import Web.Socket.Event.CloseEvent (CloseEvent, reason) as WS
 import WebSocket.Support (FromSocket) as WS
-import Welcome.Types (Action, State, InputSlot) as Welcome
+import Welcome.Types (Action, State) as Welcome
 
 -- The app exists in one of two main subStates: the "welcome" state for when you have
 -- no wallet, and all you can do is generate one or create a new one; and the "dashboard"
@@ -58,28 +60,33 @@ instance showWebSocketStatus :: Show WebSocketStatus where
   show (WebSocketClosed Nothing) = "WebSocketClosed"
   show (WebSocketClosed (Just closeEvent)) = "WebSocketClosed " <> WS.reason closeEvent
 
-data InputSlot
-  = DashboardInput Dashboard.InputSlot
-  | WelcomeInput Welcome.InputSlot
-
-derive instance eqInputSlot :: Eq InputSlot
-
-derive instance ordInputSlot :: Ord InputSlot
-
-walletDataInputSlot :: WalletData.InputSlot -> InputSlot
-walletDataInputSlot = DashboardInput <<< Dashboard.WalletDataInput
-
-contractTemplateInputSlot :: Template.InputSlot -> InputSlot
-contractTemplateInputSlot = DashboardInput <<< Dashboard.ContractTemplateInput
-
 ------------------------------------------------------------
 type ChildSlots
   = ( tooltipSlot :: forall query. H.Slot query Void ReferenceId
     , hintSlot :: forall query. H.Slot query Void String
     , submitButtonSlot :: H.Slot LoadingSubmitButton.Query LoadingSubmitButton.Message String
     , lifeCycleSlot :: forall query. H.Slot query LifecycleEvent String
-    , input :: Input.Slot Void InputSlot
+    , dashboardTemplateNickname :: Input.Slot Void ContractNicknameError String Unit
+    , dashboardWalletDataNickname :: Input.Slot Void WalletNicknameError String Unit
+    , dashboardWalletDataId :: Input.Slot Void WalletIdError PlutusAppId Unit
+    , welcomeWalletDataNickname :: Input.Slot Void WalletNicknameError String Unit
+    , welcomeWalletDataId :: Input.Slot Void Void String Unit
     )
+
+dashboardTemplateNicknameSlot :: SProxy "dashboardTemplateNickname"
+dashboardTemplateNicknameSlot = SProxy
+
+dashboardWalletDataNicknameSlot :: SProxy "dashboardWalletDataNickname"
+dashboardWalletDataNicknameSlot = SProxy
+
+dashboardWalletDataIdSlot :: SProxy "dashboardWalletDataId"
+dashboardWalletDataIdSlot = SProxy
+
+welcomeWalletDataNicknameSlot :: SProxy "welcomeWalletDataNickname"
+welcomeWalletDataNicknameSlot = SProxy
+
+welcomeWalletDataIdSlot :: SProxy "welcomeWalletDataId"
+welcomeWalletDataIdSlot = SProxy
 
 ------------------------------------------------------------
 data Query a

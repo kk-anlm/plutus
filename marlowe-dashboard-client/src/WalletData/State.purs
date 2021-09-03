@@ -4,9 +4,10 @@ module WalletData.State
   , handleAction
   , adaToken
   , getAda
-  , walletNicknameError
-  , walletIdError
+  , parseWalletNickname
+  , parseWalletId
   , parsePlutusAppId
+  , parseWalletDetails
   ) where
 
 import Prelude
@@ -35,25 +36,26 @@ import Halogen (HalogenM, query, tell)
 import Halogen.Query.HalogenM (mapAction)
 import Input.Text as TInput
 import MainFrame.Types (Action(..)) as MainFrame
-import MainFrame.Types (ChildSlots, Msg, walletDataInputSlot)
+import MainFrame.Types (ChildSlots, Msg, dashboardWalletDataIdSlot, dashboardWalletDataNicknameSlot)
 import Marlowe.PAB (PlutusAppId(..))
 import Marlowe.Semantics (Assets, Token(..))
 import Network.RemoteData (RemoteData(..), fromEither)
 import Toast.Types (errorToast, successToast)
 import Types (WebData)
-import WalletData.Lenses (_cardSection, _remoteWalletInfo, _walletId, _walletIdError, _walletLibrary, _walletNickname, _walletNicknameError)
-import WalletData.Types (Action(..), CardSection(..), InputSlot(..), PubKeyHash(..), State, Wallet(..), WalletDetails, WalletFieldsAction(..), WalletIdError(..), WalletInfo(..), WalletLibrary, WalletNickname, WalletNicknameError(..))
+import WalletData.Lenses (_cardSection, _remoteWalletInfo, _walletId, _walletLibrary, _walletNickname)
+import WalletData.Types (Action(..), CardSection(..), PubKeyHash(..), State, Wallet(..), WalletIdError(..), WalletInfo(..), WalletLibrary, WalletNickname, WalletNicknameError(..), WalletDetails)
 
 mkInitialState :: WalletLibrary -> State
 mkInitialState walletLibrary =
-  { walletLibrary
-  , cardSection: Home
-  , walletNickname: ""
-  , walletNicknameError: Nothing
-  , walletId: ""
-  , walletIdError: Nothing
-  , remoteWalletInfo: NotAsked
-  }
+  let
+    remoteWalletInfo = NotAsked
+  in
+    { walletLibrary
+    , cardSection: Home
+    , walletNickname: parseWalletNickname walletLibrary ""
+    , walletId: parseWalletId remoteWalletInfo walletLibrary ""
+    , remoteWalletInfo
+    }
 
 defaultWalletDetails :: WalletDetails
 defaultWalletDetails =
@@ -89,67 +91,37 @@ handleAction (SetCardSection cardSection) = do
     NewWallet _ -> do
       assign _remoteWalletInfo NotAsked
       void
-        $ query TInput.label (walletDataInputSlot WalletIdInput)
+        $ query dashboardWalletDataIdSlot unit
         $ tell TInput.Reset
       void
-        $ query TInput.label (walletDataInputSlot WalletNicknameInput)
+        $ query dashboardWalletDataNicknameSlot unit
         $ tell TInput.Reset
     _ -> pure unit
   assign _cardSection cardSection
 
-handleAction (SaveWallet mTokenName) = do
-  oldWalletLibrary <- use _walletLibrary
-  walletNickname <- use _walletNickname
-  walletIdString <- use _walletId
-  remoteWalletInfo <- use _remoteWalletInfo
-  let
-    mWalletId = parsePlutusAppId walletIdString
-  case remoteWalletInfo, mWalletId of
-    Success walletInfo, Just walletId -> do
-      let
-        -- note the empty properties are fine for saved wallets - these will be fetched if/when
-        -- this wallet is picked up
-        walletDetails =
-          { walletNickname
-          , companionAppId: walletId
-          , marloweAppId: PlutusAppId emptyUUID
-          , walletInfo
-          , assets: mempty
-          , previousCompanionAppState: Nothing
-          }
-      modifying _walletLibrary (insert walletNickname walletDetails)
-      insertIntoWalletLibrary walletDetails
-      newWalletLibrary <- use _walletLibrary
-      -- if a tokenName was also passed, we need to update the contract setup data
-      for_ mTokenName \tokenName -> callMainFrameAction $ MainFrame.DashboardAction $ Dashboard.SetContactForRole tokenName walletNickname
-    -- TODO: show error feedback to the user (just to be safe - but this should never happen, because
-    -- the button to save a new wallet should be disabled in this case)
-    _, _ -> pure unit
+handleAction (SaveWallet mTokenName walletDetails@{ walletNickname }) = do
+  modifying _walletLibrary (insert walletNickname walletDetails)
+  insertIntoWalletLibrary walletDetails
+  -- if a tokenName was also passed, we need to update the contract setup data
+  for_ mTokenName \tokenName -> callMainFrameAction $ MainFrame.DashboardAction $ Dashboard.SetContactForRole tokenName walletNickname
 
 handleAction CancelNewContactForRole = pure unit -- handled in Dashboard.State
 
-handleAction (WalletFieldsAction (WalletNicknameChanged value)) = do
-  walletLibrary <- use _walletLibrary
-  assign _walletNickname value
-  assign _walletNicknameError $ walletNicknameError walletLibrary value
+handleAction (WalletNicknameChanged value) = assign _walletNickname value
 
-handleAction (WalletFieldsAction (WalletIdChanged value)) = do
+handleAction (WalletIdChanged value) = do
   -- note we assign the value _first_ so that the InputField value is set - otherwise the
   -- validation feedback is wrong while the rest is happening
   assign _walletId value
   handleAction $ SetRemoteWalletInfo NotAsked
   -- if this is a valid contract ID ...
-  for_ (parsePlutusAppId value) \walletId -> do
+  for_ value \walletId -> do
     handleAction $ SetRemoteWalletInfo Loading
     -- .. lookup wallet info
     ajaxWalletInfo <- lookupWalletInfo walletId
     handleAction $ SetRemoteWalletInfo $ fromEither ajaxWalletInfo
 
-handleAction (SetRemoteWalletInfo remoteWalletInfo) = do
-  assign _remoteWalletInfo remoteWalletInfo
-  walletLibrary <- use _walletLibrary
-  walletId <- use _walletId
-  assign _walletIdError $ walletIdError remoteWalletInfo walletLibrary walletId
+handleAction (SetRemoteWalletInfo remoteWalletInfo) = assign _remoteWalletInfo remoteWalletInfo
 
 handleAction (UseWallet walletNickname companionAppId) = do
   ajaxWalletDetails <- lookupWalletDetails companionAppId
@@ -173,31 +145,47 @@ adaToken = Token "" ""
 getAda :: Assets -> BigInteger
 getAda assets = fromMaybe zero $ lookup "" =<< lookup "" (unwrap assets)
 
-walletNicknameError :: WalletLibrary -> WalletNickname -> Maybe WalletNicknameError
-walletNicknameError _ "" = Just EmptyWalletNickname
+parseWalletNickname :: WalletLibrary -> WalletNickname -> Either WalletNicknameError String
+parseWalletNickname _ "" = Left EmptyWalletNickname
 
-walletNicknameError walletLibrary walletNickname =
+parseWalletNickname walletLibrary walletNickname =
   if member walletNickname walletLibrary then
-    Just DuplicateWalletNickname
+    Left DuplicateWalletNickname
   else
     if any (\char -> not $ isAlphaNum char) $ toCharArray walletNickname then
-      Just BadWalletNickname
+      Left BadWalletNickname
     else
-      Nothing
+      Right walletNickname
 
-walletIdError :: WebData WalletInfo -> WalletLibrary -> String -> Maybe WalletIdError
-walletIdError _ _ "" = Just EmptyWalletId
+parseWalletId :: WebData WalletInfo -> WalletLibrary -> String -> Either WalletIdError PlutusAppId
+parseWalletId _ _ "" = Left EmptyWalletId
 
-walletIdError remoteDataWalletInfo walletLibrary walletIdString = case parsePlutusAppId walletIdString of
-  Nothing -> Just InvalidWalletId
+parseWalletId remoteDataWalletInfo walletLibrary walletIdString = case parsePlutusAppId walletIdString of
+  Nothing -> Left InvalidWalletId
   Just plutusAppId
-    | not $ isEmpty $ filter (\walletDetails -> walletDetails.companionAppId == plutusAppId) walletLibrary -> Just DuplicateWalletId
-  _ -> case remoteDataWalletInfo of
-    Success _ -> Nothing
-    Failure _ -> Just NonexistentWalletId
-    _ -> Just UnconfirmedWalletId
+    | not $ isEmpty $ filter (\walletDetails -> walletDetails.companionAppId == plutusAppId) walletLibrary -> Left DuplicateWalletId
+    | otherwise -> case remoteDataWalletInfo of
+      Success _ -> Right plutusAppId
+      Failure _ -> Left NonexistentWalletId
+      _ -> Left UnconfirmedWalletId
 
 parsePlutusAppId :: String -> Maybe PlutusAppId
 parsePlutusAppId plutusAppIdString = case parseUUID plutusAppIdString of
   Just uuid -> Just $ PlutusAppId uuid
   Nothing -> Nothing
+
+parseWalletDetails :: State -> Maybe WalletDetails
+parseWalletDetails { remoteWalletInfo, walletId, walletNickname } = case remoteWalletInfo, walletId, walletNickname of
+  Success walletInfo, Right companionAppId, Right nickname ->
+    Just
+      { walletNickname: nickname
+      , companionAppId
+      , marloweAppId: PlutusAppId emptyUUID
+      , walletInfo
+      , assets: mempty
+      -- this property shouldn't be necessary, but at the moment we are getting too many update notifications
+      -- through the PAB - so until that bug is fixed, we use this to check whether an update notification
+      -- really has changed anything
+      , previousCompanionAppState: Nothing
+      }
+  _, _, _ -> Nothing

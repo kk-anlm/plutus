@@ -6,12 +6,9 @@ module Input.Base
   , Props
   , Query(..)
   , Slot
-  , Slots
   , State
   , component
-  , defaultProps
   , defaultHandleMessage
-  , label
   , mkInputProps
   , renderError
   ) where
@@ -19,68 +16,67 @@ module Input.Base
 import Prelude
 import Control.MonadPlus (guard)
 import Css as Css
+import Data.Display (class Display, display)
+import Data.Either (Either(..), either)
 import Data.Lens (Lens', assign, use)
 import Data.Lens.Record (prop)
 import Data.Maybe (Maybe(..))
 import Data.Symbol (SProxy(..))
 import Effect.Aff.Class (class MonadAff)
+import Halogen (modify_)
 import Halogen as H
 import Halogen.Css (classNames)
-import Halogen.Extra (blur, focus)
+import Halogen.Extra (focus)
 import Halogen.HTML as HH
 import Halogen.HTML.Events.Extra (onValueInput_)
 import Halogen.HTML.Extra (maybeHTML)
 import Halogen.HTML.Properties as HP
 import Web.Event.Event (Event)
-import Web.HTML (HTMLElement)
 
 -------------------------------------------------------------------------------
 -- Data
 -------------------------------------------------------------------------------
-type Props msg slots m
-  = { render :: State -> HTML msg slots m
-    , value :: String
-    , error :: Maybe String
+type Props msg slots m e a
+  = { render :: State -> HTML msg slots m e a
+    , value :: Either e a
+    , parse :: String -> Either e a
     }
 
-data Message msg
-  = ValueChanged String
+data Message msg e a
+  = ValueChanged (Either e a)
   | Emitted msg
 
-defaultHandleMessage :: forall a. (String -> a) -> Message Void -> a
+defaultHandleMessage :: forall n e a. (Either e a -> n) -> Message Void e a -> n
 defaultHandleMessage f (ValueChanged v) = f v
 
 defaultHandleMessage _ (Emitted m) = absurd m
 
 data Query a
   = Focus a
-  | Blur a
-  | SetText String a
   | Reset a
-  | GetState (State -> a)
-  | GetInputElement (HTMLElement -> a)
 
-data Action msg slots m
-  = PropsReceived (Props msg slots m)
+data Action msg slots m e a
+  = PropsReceived (Props msg slots m e a)
   | Changed String
   | Raise msg
 
-type InnerState msg slots m
-  = { props :: Props msg slots m
+type InnerState msg slots m e a
+  = { error :: Maybe String
     , pristine :: Boolean
+    , props :: Props msg slots m e a
+    , displayedValue :: String
     }
 
-defaultProps :: forall msg slots m. Props msg slots m
-defaultProps =
-  { render: const $ HH.text ""
-  , value: ""
-  , error: Nothing
-  }
-
-initialState :: forall msg slots m. Props msg slots m -> InnerState msg slots m
+initialState ::
+  forall msg slots m e a.
+  Display a =>
+  Props msg slots m e a ->
+  InnerState msg slots m e a
 initialState props =
   { props
   , pristine: true
+  , error: Nothing
+  , displayedValue: either (const "") display props.value
   }
 
 type State
@@ -88,34 +84,36 @@ type State
     , error :: Maybe String
     }
 
-innerStateToState :: forall msg slots m. InnerState msg slots m -> State
-innerStateToState { props: { value, error }, pristine } =
-  { value
-  , error: guard (not pristine) *> error
+innerStateToState ::
+  forall msg slots m e a.
+  Display e =>
+  InnerState msg slots m e a ->
+  State
+innerStateToState { props: { value }, displayedValue, pristine } =
+  { value: displayedValue
+  , error: guard (not pristine) *> errorText value
   }
+  where
+  errorText (Left e) = Just $ display e
 
-type HTML msg slots m
-  = H.ComponentHTML (Action msg slots m) slots m
+  errorText _ = Nothing
 
-type InputM msg slots m
+type HTML msg slots m e a
+  = H.ComponentHTML (Action msg slots m e a) slots m
+
+type InputM msg slots m e a
   = H.HalogenM
-      (InnerState msg slots m)
-      (Action msg slots m)
+      (InnerState msg slots m e a)
+      (Action msg slots m e a)
       slots
-      (Message msg)
+      (Message msg e a)
       m
 
-type Slot msg
-  = H.Slot Query (Message msg)
+type Slot msg e a
+  = H.Slot Query (Message msg e a)
 
-type Slots slots id msg
-  = ( input :: Slot msg id | slots )
-
-type Component msg slots m
-  = H.Component HH.HTML Query (Props msg slots m) (Message msg) m
-
-label :: SProxy "input"
-label = SProxy
+type Component msg slots m e a
+  = H.Component HH.HTML Query (Props msg slots m e a) (Message msg e a) m
 
 -------------------------------------------------------------------------------
 -- Optics
@@ -123,8 +121,11 @@ label = SProxy
 _render :: forall a r. Lens' { render :: a | r } a
 _render = prop (SProxy :: SProxy "render")
 
-_value :: forall a r. Lens' { value :: a | r } a
-_value = prop (SProxy :: SProxy "value")
+_parse :: forall a r. Lens' { parse :: a | r } a
+_parse = prop (SProxy :: SProxy "parse")
+
+_displayedValue :: forall a r. Lens' { displayedValue :: a | r } a
+_displayedValue = prop (SProxy :: SProxy "displayedValue")
 
 _error :: forall a r. Lens' { error :: a | r } a
 _error = prop (SProxy :: SProxy "error")
@@ -134,9 +135,6 @@ _props = prop (SProxy :: SProxy "props")
 
 _pristine :: forall a r. Lens' { pristine :: a | r } a
 _pristine = prop (SProxy :: SProxy "pristine")
-
-_stateValue :: forall msg slots m. Lens' (InnerState msg slots m) String
-_stateValue = _props <<< _value
 
 -------------------------------------------------------------------------------
 -- Render helpers
@@ -151,10 +149,10 @@ inputRef :: H.RefLabel
 inputRef = H.RefLabel "input"
 
 mkInputProps ::
-  forall msg slots m r.
+  forall msg slots m e a r.
   String ->
-  Array (HH.IProp (InputProps r) (Action msg slots m)) ->
-  Array (HH.IProp (InputProps r) (Action msg slots m))
+  Array (HH.IProp (InputProps r) (Action msg slots m e a)) ->
+  Array (HH.IProp (InputProps r) (Action msg slots m e a))
 mkInputProps value overrides =
   [ HP.ref inputRef
   , HP.value value
@@ -171,7 +169,12 @@ renderError error =
 -------------------------------------------------------------------------------
 -- Component
 -------------------------------------------------------------------------------
-component :: forall msg slots m. MonadAff m => Component msg slots m
+component ::
+  forall msg slots m e a.
+  MonadAff m =>
+  Display e =>
+  Display a =>
+  Component msg slots m e a
 component =
   H.mkComponent
     { initialState
@@ -186,47 +189,34 @@ component =
     }
 
 handleAction ::
-  forall msg slots m.
+  forall msg slots m e a.
   MonadAff m =>
-  Action msg slots m ->
-  InputM msg slots m Unit
+  Action msg slots m e a ->
+  InputM msg slots m e a Unit
 handleAction = case _ of
   PropsReceived props -> H.modify_ _ { props = props }
   Changed value -> do
-    assign _stateValue value
+    assign _displayedValue value
     assign _pristine false
-    H.raise $ ValueChanged value
+    parse <- use (_props <<< _parse)
+    H.raise $ ValueChanged $ parse value
   Raise msg -> H.raise $ Emitted msg
 
 handleQuery ::
-  forall msg slots m a.
+  forall msg slots m e a n.
+  Display a =>
   MonadAff m =>
-  Query a ->
-  InputM msg slots m (Maybe a)
+  Query n ->
+  InputM msg slots m e a (Maybe n)
 handleQuery = case _ of
   Focus n -> do
     focus inputRef
     pure $ Just n
-  Blur n -> do
-    blur inputRef
-    pure $ Just n
-  SetText value n -> do
-    currentValue <- use _stateValue
-    when (currentValue /= value) do
-      assign _stateValue value
-      H.raise $ ValueChanged value
-    pure $ Just n
   Reset n -> do
-    currentValue <- use _stateValue
-    when (currentValue /= "") do
-      assign _stateValue ""
-      H.raise $ ValueChanged ""
-    assign _pristine true
+    modify_ $ initialState <<< _.props
+    parse <- use (_props <<< _parse)
+    H.raise $ ValueChanged $ parse ""
     pure $ Just n
-  GetState q -> do
-    (Just <<< q <<< innerStateToState) <$> H.get
-  GetInputElement q -> do
-    map q <$> H.getHTMLElementRef inputRef
 
-raise :: forall msg slots m. msg -> Action msg slots m
+raise :: forall msg slots m e a. msg -> Action msg slots m e a
 raise = Raise

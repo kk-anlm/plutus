@@ -2,6 +2,7 @@ module Input.Text
   ( Props
   , defaultProps
   , render
+  , render_
   , module Base
   ) where
 
@@ -9,60 +10,58 @@ import Prelude
 import Css as Css
 import DOM.HTML.Indexed.InputType (InputType(..))
 import Data.Array (catMaybes)
+import Data.Default (default)
+import Data.Display (class Display)
+import Data.Either (Either)
 import Data.Maybe (Maybe(..), isNothing)
+import Data.Symbol (class IsSymbol, SProxy)
 import Effect.Aff.Class (class MonadAff)
 import Halogen as H
 import Halogen.Css (classNames)
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
-import Input.Base
-  ( Action
-  , Component
-  , Message(..)
-  , Query(..)
-  , Slot
-  , Slots
-  , State
-  , label
-  , defaultHandleMessage
-  )
-  as Base
+import Input.Base (Action, Component, Message(..), Query(..), Slot, State, defaultHandleMessage) as Base
 import Input.Base (component, mkInputProps, renderError)
+import Prim.Row (class Cons)
 
-type Props
+type Props e a
   = { additionalCss :: Array String
     , id_ :: Maybe String
-    , readOnly :: Boolean
-    , value :: String
-    , error :: Maybe String
     , placeholder :: Maybe String
+    , readOnly :: Boolean
+    , value :: Either e a
+    , parse :: String -> Either e a
     }
 
-defaultProps :: Props
-defaultProps =
-  { additionalCss: []
-  , id_: Nothing
-  , readOnly: false
-  , value: ""
-  , error: Nothing
-  , placeholder: Nothing
+defaultProps :: forall e a. Either e a -> (String -> Either e a) -> Props e a
+defaultProps value parse =
+  { additionalCss: default
+  , id_: default
+  , readOnly: default
+  , value
+  , placeholder: default
+  , parse
   }
 
-render ::
-  forall action msg slots m slot.
+renderImpl ::
+  forall action msg slots m e a slot label _1.
+  Cons label (Base.Slot msg e a slot) _1 slots =>
+  IsSymbol label =>
   Ord slot =>
   MonadAff m =>
+  Display e =>
+  Display a =>
+  SProxy label ->
   slot ->
-  Props ->
-  (Base.Message msg -> action) ->
-  H.ComponentHTML action (Base.Slots slots slot msg) m
-render slot props@{ additionalCss, id_, readOnly, placeholder } handle =
-  HH.slot Base.label slot component
+  Props e a ->
+  (Base.Message msg e a -> Maybe action) ->
+  H.ComponentHTML action slots m
+renderImpl label slot props@{ additionalCss, id_, readOnly, placeholder } =
+  HH.slot label slot component
     { value: props.value
-    , error: props.error
+    , parse: props.parse
     , render: renderInner
     }
-    (Just <<< handle)
   where
   renderInner { value, error } =
     HH.div_
@@ -76,3 +75,32 @@ render slot props@{ additionalCss, id_, readOnly, placeholder } handle =
               ]
       , renderError error
       ]
+
+render ::
+  forall action msg slots m e a slot label _1.
+  Cons label (Base.Slot msg e a slot) _1 slots =>
+  IsSymbol label =>
+  Ord slot =>
+  MonadAff m =>
+  Display e =>
+  Display a =>
+  SProxy label ->
+  slot ->
+  Props e a ->
+  (Base.Message msg e a -> action) ->
+  H.ComponentHTML action slots m
+render label slot props@{ additionalCss, id_, readOnly, placeholder } handle = renderImpl label slot props $ Just <<< handle
+
+render_ ::
+  forall action msg slots m e a slot label _1.
+  Cons label (Base.Slot msg e a slot) _1 slots =>
+  IsSymbol label =>
+  Ord slot =>
+  MonadAff m =>
+  Display e =>
+  Display a =>
+  SProxy label ->
+  slot ->
+  Props e a ->
+  H.ComponentHTML action slots m
+render_ label slot props@{ additionalCss, id_, readOnly, placeholder } = renderImpl label slot props $ const Nothing

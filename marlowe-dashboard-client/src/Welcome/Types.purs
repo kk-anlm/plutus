@@ -3,37 +3,38 @@ module Welcome.Types
   , Card(..)
   , Action(..)
   , WalletNicknameOrIdError(..)
-  , InputSlot(..)
   ) where
 
 import Prelude
 import Analytics (class IsEvent, defaultEvent, toEvent)
 import Clipboard (Action) as Clipboard
+import Data.Either (Either)
 import Data.Maybe (Maybe(..))
 import InputField.Types (Action, State) as InputField
 import InputField.Types (class InputFieldError)
 import Types (WebData)
-import WalletData.Types (WalletDetails, WalletFields, WalletFieldsAction, WalletLibrary, WalletNickname)
+import WalletData.Types (WalletDetails, WalletLibrary, WalletNicknameError, WalletNickname)
 
 -- TODO (possibly): The WalletData submodule used in the Dashboard has some properties and
 -- functionality that's similar to some of what goes on here. It might be worth generalising it so
 -- it works in both cases, and including it as a submodule here too.
 type State
-  = WalletFields
-      ( card :: Maybe Card
-      -- Note [CardOpen]: As well as making the card a Maybe, we add an additional cardOpen flag.
-      -- When closing a card we set this to false instead of setting the card to Nothing, and that
-      -- way we can use CSS transitions to animate it on the way out as well as the way in. This is
-      -- preferable to using the Halogen.Animation module (used for toasts), because in this case we
-      -- need to simultaneously animate (fade in/out) the overlay, and because the animation for
-      -- cards has to be different for different screen sizes (on large screens some cards slide in
-      -- from the right) - and that's much easier to do with media queries.
-      , cardOpen :: Boolean
-      , walletLibrary :: WalletLibrary
-      , walletNicknameOrIdInput :: InputField.State WalletNicknameOrIdError
-      , remoteWalletDetails :: WebData WalletDetails
-      , enteringDashboardState :: Boolean
-      )
+  = { card :: Maybe Card
+    -- Note [CardOpen]: As well as making the card a Maybe, we add an additional cardOpen flag.
+    -- When closing a card we set this to false instead of setting the card to Nothing, and that
+    -- way we can use CSS transitions to animate it on the way out as well as the way in. This is
+    -- preferable to using the Halogen.Animation module (used for toasts), because in this case we
+    -- need to simultaneously animate (fade in/out) the overlay, and because the animation for
+    -- cards has to be different for different screen sizes (on large screens some cards slide in
+    -- from the right) - and that's much easier to do with media queries.
+    , cardOpen :: Boolean
+    , walletLibrary :: WalletLibrary
+    , walletNicknameOrIdInput :: InputField.State WalletNicknameOrIdError
+    , walletNickname :: Either WalletNicknameError String
+    , walletId :: String
+    , remoteWalletDetails :: WebData WalletDetails
+    , enteringDashboardState :: Boolean
+    }
 
 data WalletNicknameOrIdError
   = UnconfirmedWalletNicknameOrId
@@ -49,18 +50,10 @@ data Card
   = GetStartedHelpCard
   | GenerateWalletHelpCard
   | UseNewWalletCard
-  | UseWalletCard
+  | UseWalletCard WalletNickname
   | LocalWalletMissingCard
 
 derive instance eqCard :: Eq Card
-
-data InputSlot
-  = WalletNicknameInput
-  | WalletIdInput
-
-derive instance eqInputSlot :: Eq InputSlot
-
-derive instance ordInputSlot :: Ord InputSlot
 
 data Action
   = OpenCard Card
@@ -68,7 +61,8 @@ data Action
   | GenerateWallet
   | WalletNicknameOrIdInputAction (InputField.Action WalletNicknameOrIdError)
   | OpenUseWalletCardWithDetails WalletDetails
-  | WalletFieldsAction WalletFieldsAction
+  | WalletNicknameChanged (Either WalletNicknameError String)
+  | WalletIdChanged String
   | UseWallet WalletNickname
   | ClearLocalStorage
   | ClipboardAction Clipboard.Action
@@ -80,7 +74,8 @@ instance actionIsEvent :: IsEvent Action where
   toEvent GenerateWallet = Just $ defaultEvent "GenerateWallet"
   toEvent (WalletNicknameOrIdInputAction inputFieldAction) = toEvent inputFieldAction
   toEvent (OpenUseWalletCardWithDetails _) = Nothing
-  toEvent (WalletFieldsAction _) = Nothing
+  toEvent (WalletNicknameChanged _) = Nothing
+  toEvent (WalletIdChanged _) = Nothing
   toEvent (UseWallet _) = Just $ defaultEvent "UseWallet"
   toEvent ClearLocalStorage = Just $ defaultEvent "ClearLocalStorage"
   toEvent (ClipboardAction _) = Just $ defaultEvent "ClipboardAction"
