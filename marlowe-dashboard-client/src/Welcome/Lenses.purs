@@ -3,10 +3,9 @@ module Welcome.Lenses
   , _cardOpen
   , _walletLibrary
   , _walletNicknameOrIdInput
-  , _walletNicknameInput
-  , _walletIdInput
   , _remoteWalletDetails
   , _enteringDashboardState
+  , module WDL
   ) where
 
 import Data.Lens (Lens')
@@ -15,8 +14,15 @@ import Data.Maybe (Maybe)
 import Data.Symbol (SProxy(..))
 import InputField.Types (State) as InputField
 import Types (WebData)
-import WalletData.Types (WalletDetails, WalletIdError, WalletLibrary, WalletNicknameError)
+import WalletData.Types (WalletDetails, WalletLibrary)
 import Welcome.Types (Card, State, WalletNicknameOrIdError)
+import WalletData.Lenses
+  ( _walletNickname
+  , _walletNicknameError
+  , _walletId
+  , _walletIdError
+  )
+  as WDL
 
 _card :: Lens' State (Maybe Card)
 _card = prop (SProxy :: SProxy "card")
@@ -29,12 +35,6 @@ _walletLibrary = prop (SProxy :: SProxy "walletLibrary")
 
 _walletNicknameOrIdInput :: Lens' State (InputField.State WalletNicknameOrIdError)
 _walletNicknameOrIdInput = prop (SProxy :: SProxy "walletNicknameOrIdInput")
-
-_walletNicknameInput :: Lens' State (InputField.State WalletNicknameError)
-_walletNicknameInput = prop (SProxy :: SProxy "walletNicknameInput")
-
-_walletIdInput :: Lens' State (InputField.State WalletIdError)
-_walletIdInput = prop (SProxy :: SProxy "walletIdInput")
 
 _remoteWalletDetails :: Lens' State (WebData WalletDetails)
 _remoteWalletDetails = prop (SProxy :: SProxy "remoteWalletDetails")

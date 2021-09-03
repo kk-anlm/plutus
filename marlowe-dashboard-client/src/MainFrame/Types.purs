@@ -34,7 +34,7 @@ import WalletData.Types (InputSlot) as WalletData
 import WalletData.Types (WalletDetails, WalletLibrary)
 import Web.Socket.Event.CloseEvent (CloseEvent, reason) as WS
 import WebSocket.Support (FromSocket) as WS
-import Welcome.Types (Action, State) as Welcome
+import Welcome.Types (Action, State, InputSlot) as Welcome
 
 -- The app exists in one of two main subStates: the "welcome" state for when you have
 -- no wallet, and all you can do is generate one or create a new one; and the "dashboard"
@@ -60,6 +60,7 @@ instance showWebSocketStatus :: Show WebSocketStatus where
 
 data InputSlot
   = DashboardInput Dashboard.InputSlot
+  | WelcomeInput Welcome.InputSlot
 
 derive instance eqInputSlot :: Eq InputSlot
 

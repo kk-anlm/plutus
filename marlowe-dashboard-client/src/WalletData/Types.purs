@@ -11,6 +11,8 @@ module WalletData.Types
   , WalletIdError(..)
   , Action(..)
   , InputSlot(..)
+  , WalletFields
+  , WalletFieldsAction(..)
   ) where
 
 import Prelude
@@ -28,15 +30,20 @@ import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (Assets, MarloweData, MarloweParams, PubKey)
 import Types (WebData)
 
-type State
-  = { walletLibrary :: WalletLibrary
-    , cardSection :: CardSection
-    , walletNickname :: String
+type WalletFields r
+  = { walletNickname :: String
     , walletNicknameError :: Maybe WalletNicknameError
     , walletId :: String
     , walletIdError :: Maybe WalletIdError
-    , remoteWalletInfo :: WebData WalletInfo
+    | r
     }
+
+type State
+  = WalletFields
+      ( walletLibrary :: WalletLibrary
+      , cardSection :: CardSection
+      , remoteWalletInfo :: WebData WalletInfo
+      )
 
 data InputSlot
   = WalletNicknameInput
@@ -151,13 +158,16 @@ instance inputeFieldErrorWalletIdError :: InputFieldError WalletIdError where
   inputErrorToString UnconfirmedWalletId = "Looking up wallet..."
   inputErrorToString NonexistentWalletId = "Wallet not found"
 
+data WalletFieldsAction
+  = WalletNicknameChanged String
+  | WalletIdChanged String
+
 data Action
   = CloseWalletDataCard
   | SetCardSection CardSection
   | SaveWallet (Maybe String)
   | CancelNewContactForRole
-  | WalletNicknameChanged String
-  | WalletIdChanged String
+  | WalletFieldsAction WalletFieldsAction
   | SetRemoteWalletInfo (WebData WalletInfo)
   | UseWallet WalletNickname PlutusAppId
   | ClipboardAction Clipboard.Action
@@ -167,8 +177,7 @@ instance actionIsEvent :: IsEvent Action where
   toEvent (SetCardSection _) = Just $ defaultEvent "SetCardSection"
   toEvent (SaveWallet _) = Just $ defaultEvent "SaveWallet"
   toEvent CancelNewContactForRole = Nothing
-  toEvent (WalletNicknameChanged _) = Nothing
-  toEvent (WalletIdChanged _) = Nothing
+  toEvent (WalletFieldsAction _) = Nothing
   toEvent (SetRemoteWalletInfo _) = Nothing
   toEvent (UseWallet _ _) = Just $ defaultEvent "UseWallet"
   toEvent (ClipboardAction _) = Just $ defaultEvent "ClipboardAction"

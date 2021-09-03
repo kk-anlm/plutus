@@ -26,7 +26,7 @@ import Data.Symbol (SProxy(..))
 import Marlowe.PAB (PlutusAppId)
 import Marlowe.Semantics (Assets, MarloweData, MarloweParams, PubKey)
 import Types (WebData)
-import WalletData.Types (CardSection, PubKeyHash, State, Wallet, WalletIdError, WalletInfo, WalletLibrary, WalletNicknameError, WalletDetails)
+import WalletData.Types (CardSection, PubKeyHash, State, Wallet, WalletInfo, WalletLibrary, WalletDetails)
 
 _walletLibrary :: Lens' State WalletLibrary
 _walletLibrary = prop (SProxy :: SProxy "walletLibrary")
@@ -37,13 +37,13 @@ _cardSection = prop (SProxy :: SProxy "cardSection")
 _walletNickname :: forall r a. Lens' { walletNickname :: a | r } a
 _walletNickname = prop (SProxy :: SProxy "walletNickname")
 
-_walletNicknameError :: Lens' State (Maybe WalletNicknameError)
+_walletNicknameError :: forall r a. Lens' { walletNicknameError :: a | r } a
 _walletNicknameError = prop (SProxy :: SProxy "walletNicknameError")
 
-_walletId :: Lens' State String
+_walletId :: forall r a. Lens' { walletId :: a | r } a
 _walletId = prop (SProxy :: SProxy "walletId")
 
-_walletIdError :: Lens' State (Maybe WalletIdError)
+_walletIdError :: forall r a. Lens' { walletIdError :: a | r } a
 _walletIdError = prop (SProxy :: SProxy "walletIdError")
 
 _remoteWalletInfo :: Lens' State (WebData WalletInfo)

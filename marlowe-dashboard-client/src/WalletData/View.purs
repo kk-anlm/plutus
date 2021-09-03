@@ -24,7 +24,7 @@ import MainFrame.Types (ChildSlots, walletDataInputSlot)
 import Material.Icons (Icon(..)) as Icon
 import Material.Icons (icon_)
 import WalletData.Lenses (_cardSection, _companionAppId, _walletLibrary, _walletNickname)
-import WalletData.Types (Action(..), CardSection(..), InputSlot(..), State, WalletDetails, WalletIdError, WalletLibrary, WalletNicknameError)
+import WalletData.Types (Action(..), CardSection(..), InputSlot(..), State, WalletDetails, WalletFieldsAction(..), WalletIdError, WalletLibrary, WalletNicknameError)
 
 walletDataCard ::
   forall m.
@@ -217,12 +217,12 @@ newWalletCard walletNickname walletNicknameError walletId walletIdError mTokenNa
               walletNicknameInputId
               WalletNicknameInput
               walletNicknameProps
-              WalletNicknameChanged
+              (WalletFieldsAction <<< WalletNicknameChanged)
           , renderInput "Demo wallet ID"
               walletIdInputId
               WalletIdInput
               walletIdProps
-              WalletIdChanged
+              (WalletFieldsAction <<< WalletIdChanged)
           ]
       , div
           [ classNames [ "flex", "gap-4" ] ]

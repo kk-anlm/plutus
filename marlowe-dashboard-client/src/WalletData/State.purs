@@ -18,7 +18,6 @@ import Clipboard (class MonadClipboard)
 import Clipboard (handleAction) as Clipboard
 import Control.Monad.Reader (class MonadAsk)
 import Dashboard.Types (Action(..)) as Dashboard
-import Dashboard.Types (InputSlot(..))
 import Data.Array (any)
 import Data.BigInteger (BigInteger)
 import Data.Char.Unicode (isAlphaNum)
@@ -33,18 +32,17 @@ import Data.UUID (emptyUUID, parseUUID)
 import Effect.Aff.Class (class MonadAff)
 import Env (Env)
 import Halogen (HalogenM, query, tell)
-import Halogen.Extra (mapSubmodule)
 import Halogen.Query.HalogenM (mapAction)
 import Input.Text as TInput
 import MainFrame.Types (Action(..)) as MainFrame
-import MainFrame.Types (ChildSlots, InputSlot(..), Msg, walletDataInputSlot)
+import MainFrame.Types (ChildSlots, Msg, walletDataInputSlot)
 import Marlowe.PAB (PlutusAppId(..))
 import Marlowe.Semantics (Assets, Token(..))
 import Network.RemoteData (RemoteData(..), fromEither)
 import Toast.Types (errorToast, successToast)
 import Types (WebData)
 import WalletData.Lenses (_cardSection, _remoteWalletInfo, _walletId, _walletIdError, _walletLibrary, _walletNickname, _walletNicknameError)
-import WalletData.Types (Action(..), CardSection(..), InputSlot(..), PubKeyHash(..), State, Wallet(..), WalletDetails, WalletIdError(..), WalletInfo(..), WalletLibrary, WalletNickname, WalletNicknameError(..))
+import WalletData.Types (Action(..), CardSection(..), InputSlot(..), PubKeyHash(..), State, Wallet(..), WalletDetails, WalletFieldsAction(..), WalletIdError(..), WalletInfo(..), WalletLibrary, WalletNickname, WalletNicknameError(..))
 
 mkInitialState :: WalletLibrary -> State
 mkInitialState walletLibrary =
@@ -130,12 +128,12 @@ handleAction (SaveWallet mTokenName) = do
 
 handleAction CancelNewContactForRole = pure unit -- handled in Dashboard.State
 
-handleAction (WalletNicknameChanged value) = do
+handleAction (WalletFieldsAction (WalletNicknameChanged value)) = do
   walletLibrary <- use _walletLibrary
   assign _walletNickname value
   assign _walletNicknameError $ walletNicknameError walletLibrary value
 
-handleAction (WalletIdChanged value) = do
+handleAction (WalletFieldsAction (WalletIdChanged value)) = do
   -- note we assign the value _first_ so that the InputField value is set - otherwise the
   -- validation feedback is wrong while the rest is happening
   assign _walletId value
