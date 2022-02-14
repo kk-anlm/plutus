@@ -277,9 +277,8 @@ instance BA.ByteArrayAccess Validator where
 -- | 'Datum' is a wrapper around 'Data' values which are used as data in transaction outputs.
 newtype Datum = Datum { getDatum :: BuiltinData  }
   deriving stock (Generic, Haskell.Show)
-  deriving newtype (Haskell.Eq, Haskell.Ord, Eq, ToData, FromData, UnsafeFromData)
-  deriving (ToJSON, FromJSON, Serialise, NFData) via PLC.Data
-  deriving Pretty via PLC.Data
+  deriving newtype (Haskell.Eq, Haskell.Ord, Eq, ToData, FromData, UnsafeFromData, Pretty)
+  deriving anyclass (ToJSON, FromJSON, Serialise, NFData)
 
 instance BA.ByteArrayAccess Datum where
     length =
@@ -290,8 +289,8 @@ instance BA.ByteArrayAccess Datum where
 -- | 'Redeemer' is a wrapper around 'Data' values that are used as redeemers in transaction inputs.
 newtype Redeemer = Redeemer { getRedeemer :: BuiltinData }
   deriving stock (Generic, Haskell.Show)
-  deriving newtype (Haskell.Eq, Haskell.Ord, Eq, ToData, FromData, UnsafeFromData)
-  deriving (ToJSON, FromJSON, Serialise, NFData, Pretty) via PLC.Data
+  deriving newtype (Haskell.Eq, Haskell.Ord, Eq, ToData, FromData, UnsafeFromData, Pretty)
+  deriving anyclass (ToJSON, FromJSON, Serialise, NFData, Pretty)
 
 instance BA.ByteArrayAccess Redeemer where
     length =
@@ -382,7 +381,7 @@ newtype StakeValidatorHash =
 -- | Information about the state of the blockchain and about the transaction
 --   that is currently being validated, represented as a value in 'Data'.
 newtype Context = Context BuiltinData
-    deriving (ToJSON, FromJSON, Pretty, Haskell.Show) via PLC.Data
+    deriving newtype (ToJSON, FromJSON, Pretty, Haskell.Show)
 
 -- | Apply a 'Validator' to its 'Context', 'Datum', and 'Redeemer'.
 applyValidator
