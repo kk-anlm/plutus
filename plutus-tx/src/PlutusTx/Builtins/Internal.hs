@@ -23,6 +23,7 @@ import Data.Hashable (Hashable (..))
 import Data.Maybe (fromMaybe)
 import Data.Text as Text (Text, empty)
 import Data.Text.Encoding as Text (decodeUtf8, encodeUtf8)
+import GHC.Generics (Generic)
 import PlutusCore.Data qualified as PLC
 import PlutusTx.Utils (mustBeReplaced)
 import Prettyprinter (Pretty (..), viaShow)
@@ -166,6 +167,7 @@ BYTESTRING
 -- See Note [Opaque builtin types]
 -- | An opaque type representing Plutus Core ByteStrings.
 data BuiltinByteString = BuiltinByteString ByteString
+    deriving stock (Generic)
 
 instance Haskell.Show BuiltinByteString where
     show (BuiltinByteString bs) = show bs
