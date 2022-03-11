@@ -278,7 +278,7 @@ instance BA.ByteArrayAccess Validator where
 newtype Datum = Datum { getDatum :: BuiltinData  }
   deriving stock (Generic, Haskell.Show)
   deriving newtype (Haskell.Eq, Haskell.Ord, Eq, ToData, FromData, UnsafeFromData, Pretty)
-  deriving anyclass (ToJSON, FromJSON, Serialise, NFData)
+  deriving (ToJSON, FromJSON, Serialise, NFData) via PLC.Data
 
 instance BA.ByteArrayAccess Datum where
     length =
@@ -290,7 +290,7 @@ instance BA.ByteArrayAccess Datum where
 newtype Redeemer = Redeemer { getRedeemer :: BuiltinData }
   deriving stock (Generic, Haskell.Show)
   deriving newtype (Haskell.Eq, Haskell.Ord, Eq, ToData, FromData, UnsafeFromData, Pretty)
-  deriving anyclass (ToJSON, FromJSON, Serialise, NFData, Pretty)
+  deriving (ToJSON, FromJSON, Serialise, NFData) via PLC.Data
 
 instance BA.ByteArrayAccess Redeemer where
     length =
@@ -381,7 +381,7 @@ newtype StakeValidatorHash =
 -- | Information about the state of the blockchain and about the transaction
 --   that is currently being validated, represented as a value in 'Data'.
 newtype Context = Context BuiltinData
-    deriving newtype (ToJSON, FromJSON, Pretty, Haskell.Show)
+    deriving (ToJSON, FromJSON, Pretty, Haskell.Show) via PLC.Data
 
 -- | Apply a 'Validator' to its 'Context', 'Datum', and 'Redeemer'.
 applyValidator

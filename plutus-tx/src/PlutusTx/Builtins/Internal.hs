@@ -374,7 +374,8 @@ that you want to be representable on-chain.
 For off-chain usage, there are conversion functions 'builtinDataToData' and
 'dataToBuiltinData', but note that these will not work on-chain.
 -}
-data BuiltinData = BuiltinData PLC.Data
+newtype BuiltinData = BuiltinData PLC.Data
+    deriving stock (Generic)
 
 instance Haskell.Show BuiltinData where
     show (BuiltinData d) = show d
