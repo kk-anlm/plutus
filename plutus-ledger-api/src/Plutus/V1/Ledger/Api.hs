@@ -83,6 +83,7 @@ module Plutus.V1.Ledger.Api (
     , strictUpperBound
     -- *** Newtypes for script/datum types and hash types
     , Validator (..)
+    , mkTermToEvaluate
     , mkValidatorScript
     , unValidatorScript
     , ValidatorHash (..)
